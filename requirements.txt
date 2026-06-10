@@ -1,0 +1,39 @@
+# VITACORE · Dependencias Fase 1
+# Instalar con: pip install -r requirements.txt
+
+# ── Framework ──────────────────────────────
+flask>=3.0.0
+python-dotenv>=1.0.0
+werkzeug>=3.0.0
+
+# ── Supabase ───────────────────────────────
+supabase>=2.4.0
+
+# ── Groq (STT + LLM) ──────────────────────
+groq>=0.9.0
+
+# ── Cola de procesamiento ──────────────────
+celery>=5.3.0
+redis>=5.0.0
+
+# ── Audio ──────────────────────────────────
+# ffmpeg debe estar instalado en el sistema:
+#   Ubuntu/Debian: sudo apt install ffmpeg
+#   macOS:         brew install ffmpeg
+
+# ── Exportación de informes ────────────────
+python-docx>=1.1.0
+fpdf2>=2.7.0
+
+# ── Removidos en Fase 1 ────────────────────
+# faster-whisper  ← reemplazado por Groq API
+# torch           ← ya no se necesita
+
+# VITACORE · Dependencias Fase 4
+# Instalar con: pip install -r requirements.txt
+
+# ── Framework ──────────────────────────────
+flask>=3.0.0
+python-dotenv>=1.0.0
+werkzeug>=3.0.0
+

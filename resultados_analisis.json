@@ -1,0 +1,104 @@
+{
+  "fernando.ogg": {
+    "texto_raw": "Engrosamiento parietal laminar de aspecto secretor a nivel del piso de ambos senos maxilares, resto de senos paranasales con habitual neumatización, evidencia de osteoma a nivel del seno frontal derecho que mide 10 x 7 mm, ambos complejos osteomeatales libres y permeables, hipertrofia de los cornetes nasales medios e inferiores, cavum libre, tabique nasal centrado, no hay presencia de trazos fracturarios.",
+    "estructura": {
+      "paciente": "",
+      "estudio": "Estudio de senos paranasales",
+      "tecnica": "",
+      "hallazgos": {
+        "senos maxilares": "Engrosamiento parietal laminar de aspecto secretor",
+        "senos paranasales": "Neumatización habitual",
+        "seno frontal derecho": "Osteoma de 10 x 7 mm",
+        "complejos osteomeatales": "Libres y permeables",
+        "cornetes nasales": "Hipertrofia de los cornetes nasales medios e inferiores",
+        "cavum": "Libre",
+        "tabique nasal": "Centrado",
+        "trazos fracturarios": "No hay presencia"
+      },
+      "conclusion": "Se observan hallazgos de engrosamiento parietal laminar en senos maxilares, osteoma en seno frontal derecho y hipertrofia de cornetes nasales, sin evidencia de fracturas."
+    },
+    "duracion": 28.1
+  },
+  "hectotr.ogg": {
+    "texto_raw": "Se aprecia componente inflamatorio de senos maxilares con quistes o pólipos de retención. Igualmente en el seno esfenoidal izquierdo, quistes o pólipos de retención basal. Componente inflamatorio etmoidal bilateral y frontal derecho. Unidades osteomeatales libres. Osteomía maxilar bilateral, tabique nasal central sin oso, lámina papirácea íntegra, fovea etmoidal de altura simétrica, Tubus tubarico y fosita de Rosenmüller libres.",
+    "estructura": {
+      "paciente": "No especificado",
+      "estudio": "No especificado",
+      "tecnica": "No especificado",
+      "hallazgos": {
+        "senos maxilares": "Componente inflamatorio con quistes o pólipos de retención",
+        "seno esfenoidal izquierdo": "Quistes o pólipos de retención basal",
+        "etmoidal": "Componente inflamatorio bilateral",
+        "frontal": "Componente inflamatorio derecho",
+        "unidades osteomeatales": "Libres",
+        "osteomía maxilar": "Bilateral",
+        "tabique nasal": "Central sin oso",
+        "lámina papirácea": "Íntegra",
+        "fovea etmoidal": "De altura simétrica",
+        "Tubus tubarico": "Libre",
+        "fosita de Rosenmüller": "Libre"
+      },
+      "conclusion": "No especificado"
+    },
+    "duracion": 31.1
+  },
+  "ramon.ogg": {
+    "texto_raw": "Se identifica engrosamiento parietal de aspecto secretor a nivel del seno maxilar derecho, asociado a presencia de burbujas aéreas y nivel hidro aéreo, resto de senos paranasales con habitual neumatización, ambos complejos osteomeatales libres y permeables. Se identifica morfología paradójica a nivel de cornetes medios de forma bilateral e hipertrofia Términos frecuentes de la mucosa de los cornetes inferiores, cornetes nasales superiores de morfología habitual, cavum libre, tabique nasal discretamente desviado, asalto de la derecha en su porción anterior. No hay presencia de trazos fracturarios.",
+    "estructura": {
+      "paciente": {
+        "nombre": "No especificado",
+        "edad": "No especificada",
+        "sexo": "No especificado"
+      },
+      "estudio": {
+        "tipo": "Tomografía computarizada",
+        "area": "Cabeza y cuello",
+        "tecnica": "TC con contraste"
+      },
+      "tecnica": {
+        "descripcion": "TC con cortes axiales y coronales"
+      },
+      "hallazgos": {
+        "senos paranasales": {
+          "maxilar derecho": {
+            "descripcion": "Engrosamiento parietal de aspecto secretor",
+            "hallazgos asociados": [
+              "burbujas aéreas",
+              "nivel hidro aéreo"
+            ]
+          },
+          "resto de senos": {
+            "descripcion": "Neumatización habitual"
+          }
+        },
+        "complejos osteomeatales": {
+          "descripcion": "Libres y permeables"
+        },
+        "cornetes": {
+          "medios": {
+            "descripcion": "Morfología paradójica bilateral"
+          },
+          "inferiores": {
+            "descripcion": "Hipertrofia de la mucosa"
+          },
+          "superiores": {
+            "descripcion": "Morfología habitual"
+          }
+        },
+        "cavum": {
+          "descripcion": "Libre"
+        },
+        "tabique nasal": {
+          "descripcion": "Desviado discretamente hacia la derecha en su porción anterior"
+        },
+        "fracturas": {
+          "descripcion": "No hay presencia de trazos fracturarios"
+        }
+      },
+      "conclusion": {
+        "descripcion": "Engrosamiento parietal de aspecto secretor en seno maxilar derecho con hallazgos asociados, morfología paradójica en cornetes medios y hipertrofia de la mucosa en cornetes inferiores."
+      }
+    },
+    "duracion": 39.1
+  }
+}
