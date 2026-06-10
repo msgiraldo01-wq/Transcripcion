@@ -1,0 +1,601 @@
+{% extends "base.html" %}
+
+{% block title %}VITACORE · Informe Radiológico — {{ informe.proc_nombre }}{% endblock %}
+{% block header_icon %}<i class="fa-solid fa-file-waveform"></i>{% endblock %}
+{% block header_title %}Informe Radiológico{% endblock %}
+{% block header_subtitle %}{{ informe.proc_nombre }} · {{ paciente.nombre_completo or 'Paciente' }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .irWrap { max-width:1380px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+  .irCard { border-radius:20px; border:1px solid rgba(148,163,184,.18); background:rgba(255,255,255,.82); backdrop-filter:blur(10px); box-shadow:0 18px 46px rgba(2,6,23,.08); overflow:hidden; }
+
+  .irTop { padding:12px 18px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; border-bottom:1px solid rgba(148,163,184,.15); background:rgba(255,255,255,.95); }
+  .irTopLeft  { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .irTopRight { display:flex; align-items:center; gap:8px;  flex-wrap:wrap; }
+
+  .irPill { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px; border:1px solid rgba(148,163,184,.28); font-size:12px; font-weight:800; }
+  .irPill.borrador          { background:rgba(245,158,11,.12); color:#92400e;  border-color:rgba(245,158,11,.3); }
+  .irPill.pendiente_revision{ background:rgba(37,99,235,.10);  color:#1e40af;  border-color:rgba(37,99,235,.28); }
+  .irPill.en_correccion     { background:rgba(239,68,68,.10);  color:#991b1b;  border-color:rgba(239,68,68,.28); }
+  .irPill.liberado          { background:rgba(34,197,94,.12);  color:#065f46;  border-color:rgba(34,197,94,.28); }
+
+  .irPaciente { padding:12px 18px; border-bottom:1px solid rgba(148,163,184,.12); background:linear-gradient(135deg,rgba(15,76,129,.04),rgba(14,165,255,.02)); display:flex; flex-wrap:wrap; gap:20px; align-items:center; }
+  .irPacienteField { display:flex; flex-direction:column; gap:2px; }
+  .irPacienteLabel { font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.08em; }
+  .irPacienteVal   { font-size:13px; font-weight:700; color:#0f172a; }
+  .irPacienteVal.highlight { color:#0f4c81; font-size:14px; font-weight:900; }
+
+  .irCompletitud { padding:10px 18px; border-bottom:1px solid rgba(148,163,184,.10); background:rgba(248,250,252,.7); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .irCompLabel { font-size:11px; font-weight:700; color:#64748b; }
+  .irDots { display:flex; gap:6px; }
+  .irDot { width:8px; height:8px; border-radius:50%; background:rgba(148,163,184,.3); transition:background .3s; }
+  .irDot.lleno { background:#22c55e; }
+  .irPct { font-size:12px; font-weight:800; color:#0f172a; margin-left:auto; }
+
+  .irBloques { padding:16px; display:flex; flex-direction:column; gap:12px; background:rgba(255,255,255,.65); border-bottom:1px solid rgba(148,163,184,.12); }
+  .irBloquesHeader { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:4px; }
+  .irBloquesTitle { font-size:13px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px; }
+  .irBloquesTitle i { color:#0ea5ff; }
+
+  .irBloque { border:1px solid rgba(148,163,184,.22); border-radius:14px; overflow:hidden; background:#fff; transition:border-color .2s, box-shadow .2s; }
+  .irBloque:focus-within { border-color:rgba(37,99,235,.45); box-shadow:0 0 0 3px rgba(37,99,235,.08); }
+  .irBloque.done  { border-color:rgba(34,197,94,.3); }
+  .irBloque.empty { border-color:rgba(148,163,184,.18); background:rgba(248,250,252,.5); }
+
+  .irBloqueHead { padding:10px 14px; background:rgba(248,250,252,.9); border-bottom:1px solid rgba(148,163,184,.12); display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; transition:background .14s; }
+  .irBloqueHead:hover { background:rgba(37,99,235,.04); }
+  .irBloqueHeadLeft { display:flex; align-items:center; gap:10px; }
+  .irBloqueIco { width:28px; height:28px; border-radius:8px; display:grid; place-items:center; font-size:13px; color:#fff; flex-shrink:0; }
+  .ic-pac  { background:linear-gradient(135deg,#0f4c81,#0ea5ff); }
+  .ic-est  { background:linear-gradient(135deg,#7c3aed,#a78bfa); }
+  .ic-tec  { background:linear-gradient(135deg,#0d9488,#2dd4bf); }
+  .ic-hal  { background:linear-gradient(135deg,#d97706,#fbbf24); }
+  .ic-con  { background:linear-gradient(135deg,#15803d,#4ade80); }
+  .irBloqueNombre { font-size:12px; font-weight:800; color:#0f172a; text-transform:uppercase; letter-spacing:.08em; }
+  .irBloqueBadge { font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; }
+  .irBloqueBadge.completo { background:rgba(34,197,94,.12); color:#065f46; border:1px solid rgba(34,197,94,.25); }
+  .irBloqueBadge.vacio    { background:rgba(148,163,184,.12); color:#94a3b8; border:1px solid rgba(148,163,184,.22); }
+  .irBloqueChars { font-size:10px; color:#94a3b8; font-family:monospace; }
+
+  .irBloqueBody .ck.ck-editor__main>.ck-editor__editable { min-height:80px!important; max-height:300px!important; font-family:'Inter',Arial,sans-serif!important; font-size:14px!important; line-height:1.7!important; color:#0f172a!important; padding:12px 16px!important; border:none!important; box-shadow:none!important; }
+  .irBloque[data-bloque="hallazgos"] .irBloqueBody .ck.ck-editor__main>.ck-editor__editable { min-height:160px!important; }
+  .irBloqueBody .ck.ck-toolbar { border-radius:0!important; border:none!important; border-bottom:1px solid rgba(148,163,184,.15)!important; background:rgba(248,250,252,.95)!important; padding:4px 8px!important; }
+  .irBloqueBody .ck.ck-editor__editable:not(.ck-editor__nested-editable).ck-focused { border:none!important; box-shadow:none!important; }
+  .irBloqueFooter { padding:6px 14px; border-top:1px solid rgba(148,163,184,.10); background:rgba(248,250,252,.6); display:flex; align-items:center; gap:8px; font-size:11px; color:#94a3b8; }
+
+  .irFirmaPanel { padding:18px; border-bottom:1px solid rgba(148,163,184,.12); background:rgba(15,76,129,.02); }
+  .irFirmaPanelTitle { font-size:13px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+  .irFirmaPanelTitle i { color:#0f4c81; }
+  .irFirmaGrid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media(max-width:600px){ .irFirmaGrid{ grid-template-columns:1fr; } }
+  .irFirmaField { display:flex; flex-direction:column; gap:6px; }
+  .irFirmaLabel { font-size:11px; font-weight:700; color:#64748b; }
+  .irFirmaSelect { height:42px; border-radius:10px; border:1px solid rgba(148,163,184,.28); background:rgba(255,255,255,.9); padding:0 12px; font-size:13px; outline:none; transition:.15s; }
+  .irFirmaSelect:focus { border-color:rgba(15,76,129,.45); box-shadow:0 0 0 3px rgba(15,76,129,.08); }
+  .irFirmaPreview { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:12px; border:1px solid rgba(148,163,184,.22); background:rgba(255,255,255,.9); min-height:60px; }
+  .irFirmaPreview img { max-height:50px; max-width:160px; object-fit:contain; border-radius:6px; }
+  .irFirmaPreview .no-firma { font-size:12px; color:#94a3b8; display:flex; align-items:center; gap:6px; }
+  .irFirmaUpload { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .btnUploadFirma { height:36px; padding:0 14px; border-radius:10px; border:1px dashed rgba(148,163,184,.4); background:rgba(248,250,252,.9); cursor:pointer; font-size:12px; font-weight:700; color:#64748b; display:inline-flex; align-items:center; gap:6px; transition:.14s; }
+  .btnUploadFirma:hover { border-color:rgba(15,76,129,.4); color:#0f4c81; }
+
+  .irAcciones { padding:14px 18px; border-top:1px solid rgba(148,163,184,.12); background:rgba(255,255,255,.65); display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; }
+  .irBtn { height:44px; padding:0 18px; border-radius:14px; border:1px solid rgba(148,163,184,.28); background:rgba(255,255,255,.92); font-weight:900; display:inline-flex; align-items:center; gap:9px; cursor:pointer; font-size:13px; transition:.15s; user-select:none; }
+  .irBtn:hover    { filter:brightness(1.04); transform:translateY(-1px); }
+  .irBtn:active   { transform:translateY(1px); }
+  .irBtn:disabled { opacity:.4; cursor:not-allowed; transform:none!important; filter:none!important; }
+  .irBtn.guardar  { background:rgba(37,99,235,.92);  color:#fff; border-color:rgba(37,99,235,.2);  box-shadow:0 8px 20px rgba(37,99,235,.18); }
+  .irBtn.copiar   { background:rgba(255,255,255,.92); color:#334155; border-color:rgba(148,163,184,.28); }
+  .irBtn.revision { background:rgba(245,158,11,.92); color:#fff; border-color:rgba(245,158,11,.2); box-shadow:0 8px 20px rgba(245,158,11,.16); }
+  .irBtn.liberar  { background:rgba(22,163,74,.92);  color:#fff; border-color:rgba(22,163,74,.2);  box-shadow:0 8px 20px rgba(22,163,74,.16); }
+  .irBtn.volver   { background:rgba(15,76,129,.10);  color:#0f4c81; border-color:rgba(15,76,129,.22); }
+  .irBtn.word     { background:rgba(34,197,94,.92);  color:#fff; border-color:rgba(34,197,94,.2);  box-shadow:0 8px 20px rgba(34,197,94,.14); }
+  .irBtn.pdf      { background:rgba(37,99,235,.92);  color:#fff; border-color:rgba(37,99,235,.2);  box-shadow:0 8px 20px rgba(37,99,235,.18); }
+
+  .spin { width:14px; height:14px; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:_spin .7s linear infinite; display:none; }
+  @keyframes _spin { to{transform:rotate(360deg)} }
+
+  .irLiberado { padding:16px 18px; background:rgba(34,197,94,.06); border-bottom:1px solid rgba(34,197,94,.15); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .irLiberadoInfo { font-size:13px; color:#065f46; font-weight:700; }
+  .irLiberadoFirma img { max-height:40px; max-width:120px; object-fit:contain; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="irWrap">
+<div class="irCard">
+
+  <!-- TOP BAR -->
+  <div class="irTop">
+    <div class="irTopLeft">
+      <span class="irPill {{ informe.estado }}">
+        <i class="fa-solid fa-circle-dot"></i>
+        {{ {"borrador":"Borrador","pendiente_revision":"Pendiente revisión",
+            "en_correccion":"En corrección","liberado":"✓ Liberado"}
+           .get(informe.estado, informe.estado) }}
+      </span>
+      <span style="font-size:14px;font-weight:800;color:#0f172a;">{{ informe.proc_nombre }}</span>
+      <span style="font-size:12px;color:#94a3b8;">{{ informe.tipo_transcripcion | upper }}</span>
+    </div>
+    <div class="irTopRight">
+      <button class="irBtn volver" onclick="history.back()">
+        <i class="fa-solid fa-arrow-left"></i> Volver
+      </button>
+    </div>
+  </div>
+
+  <!-- BARRA PACIENTE — campos ampliados -->
+  <div class="irPaciente">
+    <div class="irPacienteField">
+      <div class="irPacienteLabel"><i class="fa-solid fa-user-injured"></i> Paciente</div>
+      <div class="irPacienteVal highlight">
+        {{ paciente.nombre_completo or (paciente.primer_nombre ~ ' ' ~ paciente.primer_apellido) or 'Sin nombre' }}
+      </div>
+    </div>
+    <div class="irPacienteField">
+      <div class="irPacienteLabel"><i class="fa-solid fa-id-card"></i> Documento</div>
+      <div class="irPacienteVal">{{ paciente.numero_documento or '—' }}</div>
+    </div>
+    {% if paciente.celular or paciente.telefono %}
+    <div class="irPacienteField">
+      <div class="irPacienteLabel"><i class="fa-solid fa-phone"></i> Teléfono</div>
+      <div class="irPacienteVal">{{ paciente.celular or paciente.telefono }}</div>
+    </div>
+    {% endif %}
+    <div class="irPacienteField">
+      <div class="irPacienteLabel"><i class="fa-solid fa-hashtag"></i> Prefactura</div>
+      <div class="irPacienteVal">#{{ informe.prefactura_id }}</div>
+    </div>
+    {% if informe.proc_id %}
+    <div class="irPacienteField">
+      <div class="irPacienteLabel"><i class="fa-solid fa-barcode"></i> CUPS</div>
+      <div class="irPacienteVal" style="font-family:monospace;">
+        {%- set cups = namespace(val='') %}
+        {%- if prefactura and prefactura['items'] %}
+        {%- for item in prefactura['items'] %}
+          {%- if item.cita_procedimiento_id|string == informe.proc_id|string or item.id|string == informe.proc_id|string %}
+            {%- set cups.val = item.codigo_cups or '' %}
+              {%- endif %}
+          {%- endfor %}
+        {%- endif %}
+        {{ cups.val or '—' }}
+      </div>
+    </div>
+    {% endif %}
+    {% if informe.fecha_liberacion %}
+    <div class="irPacienteField">
+      <div class="irPacienteLabel"><i class="fa-solid fa-calendar-check"></i> Liberado</div>
+      <div class="irPacienteVal">{{ informe.fecha_liberacion[:10] }}</div>
+    </div>
+    {% endif %}
+    <div class="irPacienteField" style="margin-left:auto;">
+      <div class="irPacienteLabel">ID Informe</div>
+      <div class="irPacienteVal" style="font-size:10px;color:#94a3b8;font-family:monospace;">
+        {{ informe.id[:8] }}...
+      </div>
+    </div>
+  </div>
+
+  {% if informe.estado == 'liberado' %}
+  <div class="irLiberado">
+    <i class="fa-solid fa-circle-check" style="font-size:20px;color:#22c55e;"></i>
+    <div class="irLiberadoInfo">
+      Liberado por {{ informe.medico_nombre }} · Reg. {{ informe.medico_registro }}
+    </div>
+    {% if informe.firma_url %}
+    <div class="irLiberadoFirma"><img src="{{ informe.firma_url }}" alt="Firma médico"></div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- COMPLETITUD -->
+  <div class="irCompletitud">
+    <span class="irCompLabel">Completitud</span>
+    <div class="irDots">
+      <div class="irDot" id="dot-paciente"   title="Paciente"></div>
+      <div class="irDot" id="dot-estudio"    title="Estudio"></div>
+      <div class="irDot" id="dot-tecnica"    title="Técnica"></div>
+      <div class="irDot" id="dot-hallazgos"  title="Hallazgos"></div>
+      <div class="irDot" id="dot-conclusion" title="Conclusión"></div>
+    </div>
+    <span class="irPct" id="irPct">0 / 5 bloques</span>
+  </div>
+
+  <!-- BLOQUES -->
+  <div class="irBloques">
+    <div class="irBloquesHeader">
+      <div class="irBloquesTitle"><i class="fa-solid fa-file-medical"></i> Informe Radiológico — Edición por bloques</div>
+      <div style="font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:5px;">
+        <i class="fa-solid fa-keyboard"></i> Tab para navegar
+      </div>
+    </div>
+
+    {% set bloques_config = [
+      ("paciente",  "ic-pac", "fa-user",           "Paciente",   "Nombre e identificación del paciente",  informe.bloque_paciente),
+      ("estudio",   "ic-est", "fa-x-ray",           "Estudio",    "Tipo de estudio radiológico",           informe.bloque_estudio),
+      ("tecnica",   "ic-tec", "fa-gears",           "Técnica",    "Técnica y protocolo utilizado",         informe.bloque_tecnica),
+      ("hallazgos", "ic-hal", "fa-magnifying-glass","Hallazgos",  "Hallazgos anatómicos y radiológicos",   informe.bloque_hallazgos),
+      ("conclusion","ic-con", "fa-file-waveform",   "Conclusión", "Impresión diagnóstica final",           informe.bloque_conclusion),
+    ] %}
+
+    {% for bloque_id, ico_cls, ico, nombre, hint, contenido in bloques_config %}
+    <div class="irBloque {{ 'done' if contenido else 'empty' }}"
+         id="bloque-{{ bloque_id }}" data-bloque="{{ bloque_id }}">
+      <div class="irBloqueHead" onclick="enfocarBloque('{{ bloque_id }}')">
+        <div class="irBloqueHeadLeft">
+          <div class="irBloqueIco {{ ico_cls }}"><i class="fa-solid {{ ico }}"></i></div>
+          <span class="irBloqueNombre">{{ nombre }}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="irBloqueChars" id="chars-{{ bloque_id }}">{{ contenido|length if contenido else 0 }} chars</span>
+          <span class="irBloqueBadge {{ 'completo' if contenido else 'vacio' }}" id="badge-{{ bloque_id }}">
+            {{ 'Completo' if contenido else 'Vacío' }}
+          </span>
+        </div>
+      </div>
+      <div class="irBloqueBody"><div id="ck-{{ bloque_id }}"></div></div>
+      <div class="irBloqueFooter">
+        <i class="fa-solid fa-circle-info" style="color:#cbd5e1;"></i>
+        {{ hint }}
+        {% if not loop.last %}<span style="margin-left:auto;font-size:10px;color:#cbd5e1;">Tab →</span>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- PANEL FIRMA -->
+  {% if informe.estado != 'liberado' %}
+  <div class="irFirmaPanel">
+    <div class="irFirmaPanelTitle"><i class="fa-solid fa-signature"></i> Firma del Radiólogo</div>
+    <div class="irFirmaGrid">
+      <div class="irFirmaField">
+        <label class="irFirmaLabel">Médico radiólogo</label>
+        <select class="irFirmaSelect" id="medicoSelect" onchange="cargarFirmaMedico()">
+          <option value="">Seleccionar médico...</option>
+          {% for m in medicos %}
+          <option value="{{ m.id }}"
+                  data-firma="{{ m.firma_url or '' }}"
+                  data-nombre="{{ m.nombre_completo }}"
+                  data-registro="{{ m.registro_profesional or '' }}"
+                  {{ 'selected' if informe.medico_id == m.id }}>
+            {{ m.nombre_completo }} — Reg. {{ m.registro_profesional or 'sin registro' }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="irFirmaField">
+        <label class="irFirmaLabel">Firma registrada</label>
+        <div class="irFirmaPreview" id="firmaPreview">
+          <div class="no-firma"><i class="fa-solid fa-signature"></i> Seleccione un médico</div>
+        </div>
+        <div class="irFirmaUpload" id="firmaUploadSection" style="margin-top:8px;display:none;">
+          <span style="font-size:11px;color:#dc2626;font-weight:700;">
+            <i class="fa-solid fa-triangle-exclamation"></i> Sin firma registrada
+          </span>
+          <label class="btnUploadFirma" for="firmaFileInput">
+            <i class="fa-solid fa-upload"></i> Subir firma PNG
+          </label>
+          <input type="file" id="firmaFileInput" accept=".png" style="display:none;" onchange="subirFirma(this)">
+          <span id="firmaUploadStatus" style="font-size:11px;color:#64748b;"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ACCIONES — emparejados con transcripcion.html -->
+  <div class="irAcciones">
+    <button class="irBtn guardar" id="btnGuardar" onclick="guardarInforme()">
+      <span class="spin" id="spinGuardar"></span>
+      <i class="fa-solid fa-floppy-disk" id="icoGuardar"></i> Guardar
+    </button>
+    <button class="irBtn copiar" id="btnCopiar" onclick="copiarInforme()">
+      <i class="fa-regular fa-copy"></i> Copiar todo
+    </button>
+    {% if informe.estado in ['borrador', 'en_correccion'] %}
+    <button class="irBtn revision" id="btnRevision" onclick="enviarRevision()">
+      <span class="spin" id="spinRevision"></span>
+      <i class="fa-solid fa-paper-plane" id="icoRevision"></i> Enviar a revisión
+    </button>
+    {% endif %}
+    {% if informe.estado in ['pendiente_revision', 'en_correccion'] %}
+    <button class="irBtn liberar" id="btnLiberar" onclick="liberarInforme()">
+      <span class="spin" id="spinLiberar"></span>
+      <i class="fa-solid fa-stamp" id="icoLiberar"></i> Firmar y liberar
+    </button>
+    {% endif %}
+    <button class="irBtn word" id="btnWord" onclick="exportar('docx')">
+      <span class="spin" id="spinWord"></span>
+      <i class="fa-solid fa-file-word" id="icoWord"></i> Word
+    </button>
+    <button class="irBtn pdf" id="btnPdf" onclick="exportar('pdf')">
+      <span class="spin" id="spinPdf"></span>
+      <i class="fa-solid fa-file-pdf" id="icoPdf"></i> PDF
+    </button>
+  </div>
+
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
+<script src="{{ url_for('static', filename='js/autocomplete.js') }}"></script>
+
+<script>
+const IR = {
+  id:           "{{ informe.id }}",
+  estado:       "{{ informe.estado }}",
+  procNombre:   {{ informe.proc_nombre | tojson }},
+  prefacturaId: {{ informe.prefactura_id }},
+};
+
+const IR_DATOS = {
+  paciente:   {{ (informe.bloque_paciente   or '') | tojson }},
+  estudio:    {{ (informe.bloque_estudio    or '') | tojson }},
+  tecnica:    {{ (informe.bloque_tecnica    or '') | tojson }},
+  hallazgos:  {{ (informe.bloque_hallazgos  or '') | tojson }},
+  conclusion: {{ (informe.bloque_conclusion or '') | tojson }},
+};
+
+const BLOQUES = ["paciente","estudio","tecnica","hallazgos","conclusion"];
+const editors = {};
+
+const TOOLBAR = {
+  items: [
+    "heading", "|",
+    "bold", "italic", "underline", "|",
+    "bulletedList", "numberedList", "|",
+    "blockQuote", "|",
+    "undo", "redo"
+  ],
+  shouldNotGroupWhenFull: true,
+};
+
+function placeholder(b) {
+  return { paciente:"Nombre e identificación...", estudio:"Tipo de estudio...",
+           tecnica:"Técnica y protocolo...", hallazgos:"Hallazgos anatómicos y radiológicos...",
+           conclusion:"Impresión diagnóstica..." }[b] || "";
+}
+
+async function inicializarEditores() {
+  for (const bloque of BLOQUES) {
+    try {
+      const editor = await ClassicEditor.create(
+        document.getElementById(`ck-${bloque}`),
+        { language: "es", toolbar: TOOLBAR, placeholder: placeholder(bloque) }
+      );
+      editors[bloque] = editor;
+      editor._cargandoInicial = false;
+      editor.model.document.on("change:data", () => {
+        if (!editor._cargandoInicial) actualizarBloque(bloque);
+      });
+      editor.editing.view.document.on("keydown", (evt, data) => {
+        const acDropdown = document.getElementById("ac-dropdown");
+        if (acDropdown && acDropdown.style.display !== "none") return;
+        if (data.keyCode === 9) {
+          data.preventDefault(); evt.stop();
+          const idx = BLOQUES.indexOf(bloque);
+          const dest = data.shiftKey ? BLOQUES[idx-1] : BLOQUES[idx+1];
+          if (dest && editors[dest]) editors[dest].editing.view.focus();
+        }
+      }, { priority:"low" });
+    } catch(e) { console.error(`[IR] Error editor "${bloque}":`, e); }
+  }
+
+  for (const bloque of BLOQUES) {
+    const contenido = IR_DATOS[bloque] || "";
+    if (!contenido.trim() || !editors[bloque]) continue;
+    const html = contenido.split(/\n+/).filter(l=>l.trim()).map(l=>`<p>${l.trim()}</p>`).join("");
+    editors[bloque]._cargandoInicial = true;
+    editors[bloque].setData(html);
+    editors[bloque]._cargandoInicial = false;
+  }
+
+  BLOQUES.forEach(b => actualizarBloque(b));
+
+  try {
+    const resp = await fetch("/diccionario");
+    const data = await resp.json();
+    const terminos = [];
+    Object.values(data.especialidades||{}).forEach(info => {
+      (info.terminos||[]).forEach(t => { if(t && !terminos.includes(t)) terminos.push(t); });
+    });
+    if (window.initAutocompletado) window.initAutocompletado(editors, terminos);
+  } catch(e) { console.warn("[IR] No se pudo cargar diccionario para AC:", e.message); }
+}
+
+window.enfocarBloque = function(b) {
+  if (editors[b]) setTimeout(() => editors[b].editing.view.focus(), 100);
+};
+
+function actualizarBloque(bloque) {
+  if (!editors[bloque]) return;
+  const div = document.createElement("div");
+  div.innerHTML = editors[bloque].getData();
+  const chars = (div.textContent||"").trim().length;
+  document.getElementById(`chars-${bloque}`).textContent = `${chars} chars`;
+  const badge = document.getElementById(`badge-${bloque}`);
+  const card  = document.getElementById(`bloque-${bloque}`);
+  const dot   = document.getElementById(`dot-${bloque}`);
+  if (chars === 0) {
+    badge.textContent="Vacío";    badge.className="irBloqueBadge vacio";
+    card.classList.remove("done"); card.classList.add("empty");
+    dot.classList.remove("lleno");
+  } else {
+    badge.textContent="Completo"; badge.className="irBloqueBadge completo";
+    card.classList.remove("empty"); card.classList.add("done");
+    dot.classList.add("lleno");
+  }
+  actualizarCompletitud();
+}
+
+function actualizarCompletitud() {
+  let n=0;
+  BLOQUES.forEach(b => {
+    if (!editors[b]) return;
+    const div=document.createElement("div"); div.innerHTML=editors[b].getData();
+    if ((div.textContent||"").trim()) n++;
+  });
+  document.getElementById("irPct").textContent = `${n} / 5 bloques`;
+}
+
+const NOMBRES = { paciente:"PACIENTE", estudio:"ESTUDIO", tecnica:"TÉCNICA",
+                  hallazgos:"HALLAZGOS", conclusion:"CONCLUSIÓN" };
+
+function getBloques() {
+  const r={};
+  BLOQUES.forEach(b => {
+    if (!editors[b]) { r[b]=""; return; }
+    const div=document.createElement("div"); div.innerHTML=editors[b].getData();
+    r[b]=(div.textContent||"").trim();
+  });
+  return r;
+}
+
+function getHTML() {
+  let html=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#0f172a;">`;
+  BLOQUES.forEach(b => {
+    if (!editors[b]) return;
+    const c=editors[b].getData().trim(); if (!c) return;
+    html+=`<h2 style="color:#0f4c81;border-bottom:2px solid #0ea5ff;padding-bottom:4px;margin-top:18px;">${NOMBRES[b]}</h2>${c}`;
+  });
+  return html+`</div>`;
+}
+
+function getTexto() {
+  let t="";
+  BLOQUES.forEach(b => {
+    if (!editors[b]) return;
+    const div=document.createElement("div"); div.innerHTML=editors[b].getData();
+    const c=(div.textContent||"").trim(); if (!c) return;
+    t+=`\n${NOMBRES[b]}\n${"-".repeat(40)}\n${c}\n`;
+  });
+  return t.trim();
+}
+
+async function guardarInforme() {
+  setLoading("btnGuardar","spinGuardar","icoGuardar",true);
+  try {
+    const bloques=getBloques();
+    const resp=await fetch(`/informe/${IR.id}/guardar`,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ bloque_paciente:bloques.paciente, bloque_estudio:bloques.estudio,
+        bloque_tecnica:bloques.tecnica, bloque_hallazgos:bloques.hallazgos,
+        bloque_conclusion:bloques.conclusion, informe_html:getHTML() }),
+    });
+    const data=await resp.json();
+    data.ok ? notifyOk("Guardado","Informe guardado correctamente.")
+            : notifyErr("Error al guardar",data.error||"");
+  } catch(e) { notifyErr("Error de red",e.message); }
+  finally    { setLoading("btnGuardar","spinGuardar","icoGuardar",false); }
+}
+
+async function copiarInforme() {
+  const texto=getTexto();
+  if (!texto) { notifyErr("Informe vacío","No hay texto para copiar."); return; }
+  try {
+    await navigator.clipboard.writeText(texto);
+    notifyOk("Copiado","Informe copiado al portapapeles.");
+  } catch(e) { notifyErr("Error","No se pudo copiar al portapapeles."); }
+}
+
+async function enviarRevision() {
+  if (!getTexto()) { notifyErr("Informe vacío","Complete al menos los hallazgos."); return; }
+  const conf=await Swal.fire({ title:"Enviar a revisión", text:"El informe pasará a estado 'Pendiente revisión'.", icon:"question", showCancelButton:true, confirmButtonText:"Enviar", cancelButtonText:"Cancelar", confirmButtonColor:"#d97706" });
+  if (!conf.isConfirmed) return;
+  await guardarInforme();
+  setLoading("btnRevision","spinRevision","icoRevision",true);
+  try {
+    const resp=await fetch(`/informe/${IR.id}/enviar-revision`,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+    const data=await resp.json();
+    if (data.ok) { await Swal.fire({title:"Enviado a revisión",text:"El radiólogo puede revisar y firmar.",icon:"success",timer:3000,showConfirmButton:false}); location.reload(); }
+    else notifyErr("Error",data.error||"");
+  } catch(e) { notifyErr("Error de red",e.message); }
+  finally    { setLoading("btnRevision","spinRevision","icoRevision",false); }
+}
+
+async function liberarInforme() {
+  const medicoId=document.getElementById("medicoSelect")?.value;
+  if (!medicoId) { notifyErr("Seleccione un médico","Debe seleccionar el radiólogo que firma."); return; }
+  const sel=document.getElementById("medicoSelect");
+  const opt=sel.options[sel.selectedIndex];
+  if (!opt.dataset.firma) { notifyErr("Sin firma","El médico no tiene firma registrada. Suba la firma PNG primero."); return; }
+  const conf=await Swal.fire({ title:"Firmar y liberar informe", html:`<p>Firmado por <strong>${opt.dataset.nombre}</strong> (Reg. ${opt.dataset.registro})</p>`, icon:"warning", showCancelButton:true, confirmButtonText:"Firmar y liberar", cancelButtonText:"Cancelar", confirmButtonColor:"#16a34a" });
+  if (!conf.isConfirmed) return;
+  setLoading("btnLiberar","spinLiberar","icoLiberar",true);
+  try {
+    const resp=await fetch(`/informe/${IR.id}/liberar`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({medico_id:parseInt(medicoId)})});
+    const data=await resp.json();
+    if (data.ok) { await Swal.fire({title:"¡Informe liberado!",html:"<p>Firmado y disponible en la historia clínica.</p>",icon:"success",confirmButtonColor:"#0f4c81"}); location.reload(); }
+    else if (data.requiere_firma) notifyErr("Sin firma","Suba la firma PNG del médico antes de liberar.");
+    else notifyErr("Error al liberar",data.error||"");
+  } catch(e) { notifyErr("Error de red",e.message); }
+  finally    { setLoading("btnLiberar","spinLiberar","icoLiberar",false); }
+}
+
+function cargarFirmaMedico() {
+  const sel=document.getElementById("medicoSelect");
+  const opt=sel.options[sel.selectedIndex];
+  const prev=document.getElementById("firmaPreview");
+  const uploadSec=document.getElementById("firmaUploadSection");
+  if (!opt||!opt.value) { prev.innerHTML=`<div class="no-firma"><i class="fa-solid fa-signature"></i> Seleccione un médico</div>`; if(uploadSec) uploadSec.style.display="none"; return; }
+  if (opt.dataset.firma) {
+    prev.innerHTML=`<img src="${opt.dataset.firma}" alt="Firma"><div style="font-size:11px;color:#065f46;"><i class="fa-solid fa-circle-check"></i> Firma registrada</div>`;
+    if(uploadSec) uploadSec.style.display="none";
+  } else {
+    prev.innerHTML=`<div class="no-firma"><i class="fa-solid fa-triangle-exclamation" style="color:#dc2626;"></i> Sin firma</div>`;
+    if(uploadSec) uploadSec.style.display="flex";
+  }
+}
+
+async function subirFirma(input) {
+  const sel=document.getElementById("medicoSelect");
+  const medicoId=sel.value;
+  if (!medicoId||!input.files[0]) return;
+  const status=document.getElementById("firmaUploadStatus");
+  status.textContent="Subiendo...";
+  const form=new FormData(); form.append("firma",input.files[0]);
+  try {
+    const resp=await fetch(`/medico/${medicoId}/subir-firma`,{method:"POST",body:form});
+    const data=await resp.json();
+    if (data.ok) { status.textContent="✓ Firma guardada"; sel.options[sel.selectedIndex].dataset.firma=data.firma_url; cargarFirmaMedico(); }
+    else status.textContent="Error: "+(data.error||"No se pudo subir");
+  } catch(e) { status.textContent="Error de red"; }
+}
+
+async function exportar(ext) {
+  const texto=getTexto();
+  if (!texto) { notifyErr("Informe vacío","No hay texto para exportar."); return; }
+  const spinId=ext==="docx"?"spinWord":"spinPdf";
+  const icoId =ext==="docx"?"icoWord":"icoPdf";
+  const btnId =ext==="docx"?"btnWord":"btnPdf";
+  setLoading(btnId,spinId,icoId,true);
+  const url=`/informe/${IR.id}/exportar-${ext==="docx"?"word":"pdf"}`;
+  try {
+    const resp=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({texto,nombre:IR.procNombre.replace(/[^a-z0-9]/gi,"_")})});
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const blob=await resp.blob();
+    const a=Object.assign(document.createElement("a"),{href:URL.createObjectURL(blob),download:`informe_${IR.prefacturaId}.${ext==="docx"?"docx":"pdf"}`});
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+  } catch(e) { notifyErr("Error al exportar",e.message); }
+  finally    { setLoading(btnId,spinId,icoId,false); }
+}
+
+function setLoading(btn,sId,iId,on) {
+  if (typeof btn==="string") btn=document.getElementById(btn);
+  if (!btn) return; btn.disabled=on;
+  const s=document.getElementById(sId),i=document.getElementById(iId);
+  if(s) s.style.display=on?"inline-block":"none";
+  if(i) i.style.display=on?"none":"inline-block";
+}
+function notifyOk(t,m){ window.Swal?Swal.fire({title:t,text:m,icon:"success",timer:2500,showConfirmButton:false}):alert(t); }
+function notifyErr(t,m){ window.Swal?Swal.fire({title:t,text:m,icon:"error"}):alert(`${t}: ${m}`); }
+
+document.addEventListener("DOMContentLoaded", () => {
+  inicializarEditores();
+  if (document.getElementById("medicoSelect")?.value) cargarFirmaMedico();
+});
+</script>
+{% endblock %}

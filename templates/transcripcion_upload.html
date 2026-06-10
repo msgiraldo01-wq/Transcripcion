@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+
+{% block title %}VITACORE · Cargar Audio — {{ informe.proc_nombre }}{% endblock %}
+{% block header_icon %}<i class="fa-solid fa-microphone-lines"></i>{% endblock %}
+{% block header_title %}Carga de Audio{% endblock %}
+{% block header_subtitle %}{{ informe.proc_nombre }} · {{ paciente.nombre_completo or 'Paciente' }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .upWrap { max-width:800px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+
+  .upCard {
+    border-radius:20px;
+    border:1px solid rgba(148,163,184,.18);
+    background:rgba(255,255,255,.85);
+    backdrop-filter:blur(10px);
+    box-shadow:0 18px 46px rgba(2,6,23,.08);
+    overflow:hidden;
+  }
+
+  /* Barra info paciente */
+  .upPaciente {
+    padding:14px 20px;
+    border-bottom:1px solid rgba(148,163,184,.12);
+    background:linear-gradient(135deg,rgba(15,76,129,.04),rgba(14,165,255,.02));
+    display:flex; flex-wrap:wrap; gap:20px; align-items:center;
+  }
+  .upField { display:flex; flex-direction:column; gap:2px; }
+  .upLabel { font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.08em; }
+  .upVal   { font-size:13px; font-weight:700; color:#0f172a; }
+  .upVal.hi{ color:#0f4c81; font-size:14px; font-weight:900; }
+
+  /* Zona de drop */
+  .upDropZone {
+    margin:24px;
+    border:2px dashed rgba(124,58,237,.3);
+    border-radius:16px;
+    padding:40px 20px;
+    text-align:center;
+    background:rgba(124,58,237,.03);
+    cursor:pointer;
+    transition:.2s;
+  }
+  .upDropZone:hover, .upDropZone.drag-over {
+    border-color:rgba(124,58,237,.7);
+    background:rgba(124,58,237,.06);
+  }
+  .upDropZone.has-file {
+    border-color:rgba(34,197,94,.5);
+    background:rgba(34,197,94,.04);
+  }
+  .upDropIco  { font-size:48px; color:rgba(124,58,237,.5); margin-bottom:12px; }
+  .upDropText { font-size:15px; font-weight:700; color:#0f172a; margin-bottom:6px; }
+  .upDropSub  { font-size:12px; color:#94a3b8; }
+  .upDropFormats { font-size:11px; color:#94a3b8; margin-top:8px; }
+
+  /* Info del archivo seleccionado */
+  .upFileInfo {
+    display:none;
+    margin:0 24px 20px;
+    padding:14px 16px;
+    border-radius:12px;
+    border:1px solid rgba(34,197,94,.25);
+    background:rgba(34,197,94,.06);
+    align-items:center; gap:12px;
+  }
+  .upFileInfo.visible { display:flex; }
+  .upFileIco  { font-size:24px; color:#16a34a; flex-shrink:0; }
+  .upFileNombre { font-size:13px; font-weight:700; color:#0f172a; }
+  .upFileMeta   { font-size:11px; color:#64748b; }
+  .upFileElim {
+    margin-left:auto; width:28px; height:28px;
+    border-radius:8px; border:1px solid rgba(239,68,68,.25);
+    background:rgba(239,68,68,.06); color:#dc2626;
+    cursor:pointer; display:grid; place-items:center;
+    font-size:12px; transition:.14s;
+  }
+  .upFileElim:hover { background:rgba(239,68,68,.15); }
+
+  /* Barra de progreso upload */
+  .upProgress {
+    display:none;
+    margin:0 24px 20px;
+  }
+  .upProgress.visible { display:block; }
+  .upProgressLabel { font-size:12px; font-weight:700; color:#0f172a; margin-bottom:6px; display:flex; justify-content:space-between; }
+  .upProgressBar   { height:8px; background:rgba(148,163,184,.2); border-radius:999px; overflow:hidden; }
+  .upProgressFill  { height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,#7c3aed,#0ea5ff); transition:width .3s; }
+
+  /* Acciones */
+  .upAcciones {
+    padding:16px 24px;
+    border-top:1px solid rgba(148,163,184,.12);
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  .upBtn {
+    height:44px; padding:0 20px; border-radius:14px;
+    border:1px solid rgba(148,163,184,.28);
+    background:rgba(255,255,255,.92);
+    font-weight:900; display:inline-flex; align-items:center; gap:9px;
+    cursor:pointer; font-size:13px; transition:.15s; user-select:none;
+  }
+  .upBtn:hover    { filter:brightness(1.04); transform:translateY(-1px); }
+  .upBtn:active   { transform:translateY(1px); }
+  .upBtn:disabled { opacity:.4; cursor:not-allowed; transform:none!important; filter:none!important; }
+  .upBtn.primary  { background:rgba(124,58,237,.92); color:#fff; border-color:rgba(124,58,237,.2); box-shadow:0 8px 20px rgba(124,58,237,.2); }
+  .upBtn.volver   { background:rgba(15,76,129,.10); color:#0f4c81; border-color:rgba(15,76,129,.22); }
+
+  .spin { width:14px; height:14px; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:_spin .7s linear infinite; display:none; }
+  @keyframes _spin { to{transform:rotate(360deg)} }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="upWrap">
+<div class="upCard">
+
+  <!-- Info paciente -->
+  <div class="upPaciente">
+    <div class="upField">
+      <div class="upLabel"><i class="fa-solid fa-user-injured"></i> Paciente</div>
+      <div class="upVal hi">
+        {{ paciente.nombre_completo or
+           (paciente.primer_nombre ~ ' ' ~ paciente.primer_apellido) or 'Sin nombre' }}
+      </div>
+    </div>
+    <div class="upField">
+      <div class="upLabel"><i class="fa-solid fa-id-card"></i> Documento</div>
+      <div class="upVal">{{ paciente.numero_documento or '—' }}</div>
+    </div>
+    <div class="upField">
+      <div class="upLabel"><i class="fa-solid fa-stethoscope"></i> Procedimiento</div>
+      <div class="upVal">{{ informe.proc_nombre }}</div>
+    </div>
+    <div class="upField">
+      <div class="upLabel"><i class="fa-solid fa-hashtag"></i> Prefactura</div>
+      <div class="upVal">#{{ informe.prefactura_id }}</div>
+    </div>
+  </div>
+
+  <!-- Drop zone -->
+  <div class="upDropZone" id="dropZone"
+       onclick="document.getElementById('audioInput').click()"
+       ondragover="onDragOver(event)"
+       ondragleave="onDragLeave(event)"
+       ondrop="onDrop(event)">
+    <div class="upDropIco"><i class="fa-solid fa-microphone-lines"></i></div>
+    <div class="upDropText" id="dropText">Arrastra el audio aquí</div>
+    <div class="upDropSub">o haz clic para seleccionar el archivo</div>
+    <div class="upDropFormats">
+      Formatos: .ogg · .mp3 · .wav · .m4a · .flac · .webm · máx 25MB
+    </div>
+  </div>
+
+  <input type="file" id="audioInput"
+         accept=".ogg,.mp3,.wav,.m4a,.flac,.webm,audio/*"
+         style="display:none;" onchange="onFileSelected(this)">
+
+  <!-- Info archivo seleccionado -->
+  <div class="upFileInfo" id="upFileInfo">
+    <div class="upFileIco"><i class="fa-solid fa-file-audio"></i></div>
+    <div>
+      <div class="upFileNombre" id="upFileNombre">—</div>
+      <div class="upFileMeta"  id="upFileMeta">—</div>
+    </div>
+    <button class="upFileElim" onclick="limpiarArchivo()"
+            title="Quitar archivo">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+
+  <!-- Progreso -->
+  <div class="upProgress" id="upProgress">
+    <div class="upProgressLabel">
+      <span id="progressLabel">Subiendo audio...</span>
+      <span id="progressPct">0%</span>
+    </div>
+    <div class="upProgressBar">
+      <div class="upProgressFill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <!-- Acciones -->
+  <div class="upAcciones">
+    <button class="upBtn volver" onclick="history.back()">
+      <i class="fa-solid fa-arrow-left"></i> Volver
+    </button>
+    <button class="upBtn primary" id="btnSubir" onclick="subirAudio()" disabled>
+      <span class="spin" id="spinSubir"></span>
+      <i class="fa-solid fa-upload" id="icoSubir"></i>
+      Transcribir con IA
+    </button>
+    <span style="font-size:11px;color:#94a3b8;margin-left:4px;" id="upHint">
+      Selecciona un archivo de audio para continuar
+    </span>
+  </div>
+
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const UP = {
+  informeId:    "{{ informe.id }}",
+  prefacturaId: {{ informe.prefactura_id }},
+  archivo:      null,
+  MAX_BYTES:    25 * 1024 * 1024,
+};
+
+// ── Drag & Drop ───────────────────────────────────────────────────
+function onDragOver(e) {
+  e.preventDefault();
+  document.getElementById("dropZone").classList.add("drag-over");
+}
+function onDragLeave(e) {
+  document.getElementById("dropZone").classList.remove("drag-over");
+}
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById("dropZone").classList.remove("drag-over");
+  const file = e.dataTransfer.files[0];
+  if (file) procesarArchivo(file);
+}
+function onFileSelected(input) {
+  if (input.files[0]) procesarArchivo(input.files[0]);
+}
+
+function procesarArchivo(file) {
+  if (file.size > UP.MAX_BYTES) {
+    Swal.fire("Archivo muy grande", "El audio no puede superar 25MB.", "error");
+    return;
+  }
+  UP.archivo = file;
+
+  const mb   = (file.size / 1024 / 1024).toFixed(2);
+  const ext  = file.name.split(".").pop().toUpperCase();
+
+  document.getElementById("upFileNombre").textContent = file.name;
+  document.getElementById("upFileMeta").textContent   = `${ext} · ${mb} MB`;
+  document.getElementById("upFileInfo").classList.add("visible");
+  document.getElementById("dropZone").classList.add("has-file");
+  document.getElementById("dropText").textContent = "Archivo listo";
+  document.getElementById("btnSubir").disabled = false;
+  document.getElementById("upHint").textContent = "Listo para transcribir";
+}
+
+function limpiarArchivo() {
+  UP.archivo = null;
+  document.getElementById("audioInput").value = "";
+  document.getElementById("upFileInfo").classList.remove("visible");
+  document.getElementById("dropZone").classList.remove("has-file");
+  document.getElementById("dropText").textContent = "Arrastra el audio aquí";
+  document.getElementById("btnSubir").disabled = true;
+  document.getElementById("upHint").textContent = "Selecciona un archivo de audio para continuar";
+}
+
+// ── Subir y transcribir ───────────────────────────────────────────
+async function subirAudio() {
+  if (!UP.archivo) return;
+
+  const btn = document.getElementById("btnSubir");
+  btn.disabled = true;
+  document.getElementById("spinSubir").style.display = "inline-block";
+  document.getElementById("icoSubir").style.display  = "none";
+
+  const progress = document.getElementById("upProgress");
+  progress.classList.add("visible");
+
+  try {
+    // 1. Crear job de transcripción ligado al informe
+    setProgreso(10, "Preparando transcripción...");
+
+    const formData = new FormData();
+    formData.append("audio",      UP.archivo);
+    formData.append("informe_id", UP.informeId);
+    formData.append("especialidad", "radiologia");
+    formData.append("bloque", "general");
+
+    setProgreso(20, "Subiendo audio...");
+
+    const resp = await fetch("/transcripcion/subir-audio", {
+      method: "POST",
+      body:   formData,
+    });
+
+    setProgreso(40, "Audio recibido — iniciando IA...");
+
+    const data = await resp.json();
+    if (!data.ok) {
+      throw new Error(data.error || "Error al subir el audio");
+    }
+
+    setProgreso(60, "Procesando con Groq...");
+
+    // 2. Redirigir a la pantalla de transcripción existente (con el job_id)
+    //    La pantalla de transcripción hace polling automáticamente
+    setProgreso(80, "Redirigiendo...");
+    setProgreso(100, "¡Listo!");
+
+    await new Promise(r => setTimeout(r, 500));
+    window.location.href = data.redirect_url;
+
+  } catch(e) {
+    Swal.fire("Error", e.message, "error");
+    btn.disabled = false;
+    document.getElementById("spinSubir").style.display = "none";
+    document.getElementById("icoSubir").style.display  = "inline-block";
+    progress.classList.remove("visible");
+  }
+}
+
+function setProgreso(pct, label) {
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressPct").textContent  = pct + "%";
+  document.getElementById("progressLabel").textContent = label;
+}
+</script>
+{% endblock %}

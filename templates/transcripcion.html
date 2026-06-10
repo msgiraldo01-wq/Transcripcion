@@ -1,0 +1,526 @@
+{% extends "base.html" %}
+
+{% block title %}VITACORE · Transcripción — {{ job.proc_nombre }}{% endblock %}
+{% block header_icon %}<i class="fa-solid fa-microphone-lines"></i>{% endblock %}
+{% block header_title %}Transcripción Médica{% endblock %}
+{% block header_subtitle %}{{ job.proc_nombre }} · {{ job.paciente_nombre }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .txWrap { max-width:1380px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+  .txCard { border-radius:20px; border:1px solid rgba(148,163,184,.18); background:rgba(255,255,255,.72); backdrop-filter:blur(10px); box-shadow:0 18px 46px rgba(2,6,23,.08); overflow:hidden; }
+
+  .txTop { position:sticky; top:12px; z-index:40; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; border-bottom:1px solid rgba(148,163,184,.18); background:rgba(255,255,255,.95); backdrop-filter:blur(10px); }
+  .txLeft  { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .txRight { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .fileName .h { font-weight:900; font-size:14px; color:#0b1220; }
+  .fileName .s { font-size:12px; color:#64748b; }
+
+  .pill { display:inline-flex; align-items:center; gap:7px; padding:5px 10px; border-radius:999px; border:1px solid rgba(148,163,184,.28); background:rgba(255,255,255,.85); color:#334155; font-weight:800; font-size:12px; user-select:none; }
+  .pill.warn   { border-color:rgba(245,158,11,.35); background:rgba(245,158,11,.12); color:#92400e; }
+  .pill.ok     { border-color:rgba(34,197,94,.30);  background:rgba(34,197,94,.12);  color:#065f46; }
+  .pill.danger { border-color:rgba(220,38,38,.30);  background:rgba(220,38,38,.10);  color:#991b1b; }
+
+  .ctrl { display:flex; align-items:center; gap:8px; }
+  .sel  { height:34px; border-radius:10px; border:1px solid rgba(148,163,184,.28); background:rgba(255,255,255,.9); padding:0 10px; font-weight:800; font-size:13px; outline:none; }
+  .rng  { width:120px; accent-color:#2563eb; }
+
+  .patientBar { padding:12px 16px; border-bottom:1px solid rgba(148,163,184,.15); background:linear-gradient(135deg,rgba(15,76,129,.05),rgba(14,165,255,.03)); display:flex; flex-wrap:wrap; gap:20px; align-items:center; }
+  .pb-field { display:flex; flex-direction:column; gap:2px; }
+  .pb-field .pf-label { font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.08em; }
+  .pb-field .pf-val   { font-size:13px; font-weight:700; color:#0f172a; }
+  .pb-field .pf-val.blue { color:#0f4c81; font-weight:900; font-size:14px; }
+
+  .job-status-bar { padding:14px 16px; border-bottom:1px solid rgba(148,163,184,.15); display:none; flex-direction:column; gap:10px; }
+  .job-status-bar.visible { display:flex; }
+  .jsb-header { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .jsb-label  { font-size:13px; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:8px; }
+  .jsb-label i { font-size:16px; }
+  .jsb-progress-wrap { height:6px; background:rgba(148,163,184,.2); border-radius:999px; overflow:hidden; }
+  .jsb-progress-bar  { height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,#2563eb,#22c55e); transition:width .4s ease; }
+  .jsb-progress-bar.indeterminate { width:40%!important; animation:indeterminate 1.6s ease-in-out infinite; }
+  @keyframes indeterminate { 0%{transform:translateX(-100%)} 100%{transform:translateX(350%)} }
+  .jsb-steps { display:flex; gap:6px; flex-wrap:wrap; }
+  .jsb-step  { font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px; background:rgba(148,163,184,.12); border:1px solid rgba(148,163,184,.22); color:#94a3b8; transition:all .3s; }
+  .jsb-step.active { background:rgba(37,99,235,.12); border-color:rgba(37,99,235,.30); color:#1d4ed8; }
+  .jsb-step.done   { background:rgba(34,197,94,.12);  border-color:rgba(34,197,94,.28);  color:#065f46; }
+  .jsb-step.error  { background:rgba(220,38,38,.10);  border-color:rgba(220,38,38,.28);  color:#991b1b; }
+
+  .txPlayer { padding:10px 16px; border-bottom:1px solid rgba(148,163,184,.15); background:rgba(255,255,255,.62); display:none; gap:14px; align-items:center; flex-wrap:nowrap; }
+  .txPlayer.visible { display:flex; }
+  .txPlayer audio   { flex:1; min-width:0; height:40px; }
+
+  .shortcuts-panel { display:flex; flex-direction:column; gap:4px; min-width:230px; max-width:260px; padding:10px 12px; border-radius:12px; border:1px solid rgba(148,163,184,.22); background:rgba(248,250,252,.95); flex-shrink:0; }
+  .sp-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+  .sp-title  { font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.08em; display:flex; align-items:center; gap:5px; }
+  .sp-title i { color:#0ea5ff; }
+  .sp-mode-toggle { display:flex; gap:3px; }
+  .sp-mode-btn { padding:2px 7px; border-radius:6px; border:1px solid rgba(148,163,184,.28); background:transparent; font-size:10px; font-weight:700; color:#94a3b8; cursor:pointer; transition:.14s; }
+  .sp-mode-btn.active { background:rgba(37,99,235,.10); border-color:rgba(37,99,235,.30); color:#1d4ed8; }
+  .sc-row { display:flex; align-items:center; gap:7px; padding:3px 0; border-bottom:1px solid rgba(148,163,184,.08); }
+  .sc-row:last-child { border-bottom:none; }
+  .sc-key { display:inline-flex; align-items:center; justify-content:center; min-width:32px; height:22px; padding:0 6px; border-radius:6px; background:#fff; border:1px solid rgba(148,163,184,.35); box-shadow:0 1px 0 rgba(0,0,0,.12); font-size:10px; font-weight:800; color:#334155; font-family:monospace; flex-shrink:0; transition:background .1s,transform .1s; }
+  .sc-key.pressed { background:rgba(37,99,235,.12); border-color:rgba(37,99,235,.40); color:#1d4ed8; transform:translateY(1px); box-shadow:none; }
+  .sc-action { font-size:11px; font-weight:600; color:#475569; flex:1; }
+  .sc-icon   { font-size:11px; color:#94a3b8; width:14px; text-align:center; flex-shrink:0; }
+  @media(max-width:768px) { .txPlayer{flex-wrap:wrap} .shortcuts-panel{min-width:100%;max-width:100%} }
+
+  .bloques-editor { padding:16px; display:flex; flex-direction:column; gap:12px; background:rgba(255,255,255,.68); border-bottom:1px solid rgba(148,163,184,.15); }
+  .bloques-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; flex-wrap:wrap; gap:8px; }
+  .bloques-title { font-size:13px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px; }
+  .bloques-title i { color:#0ea5ff; }
+  .bloques-hint { font-size:11px; color:#94a3b8; display:flex; align-items:center; gap:5px; }
+
+  .bloque-editor { border:1px solid rgba(148,163,184,.22); border-radius:14px; overflow:hidden; transition:border-color .2s, box-shadow .2s; background:#fff; }
+  .bloque-editor:focus-within { border-color:rgba(37,99,235,.45); box-shadow:0 0 0 3px rgba(37,99,235,.08); }
+  .bloque-editor.bloque-done  { border-color:rgba(34,197,94,.30); }
+  .bloque-editor.bloque-vacio { border-color:rgba(148,163,184,.18); background:rgba(248,250,252,.5); }
+
+  .bloque-head { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:rgba(248,250,252,.9); border-bottom:1px solid rgba(148,163,184,.15); cursor:pointer; user-select:none; transition:background .15s; }
+  .bloque-head:hover { background:rgba(37,99,235,.04); }
+  .bloque-head-left { display:flex; align-items:center; gap:10px; }
+  .bloque-icono { width:28px; height:28px; border-radius:8px; display:grid; place-items:center; font-size:13px; color:#fff; flex-shrink:0; }
+  .bloque-icono.ic-paciente   { background:linear-gradient(135deg,#0f4c81,#0ea5ff); }
+  .bloque-icono.ic-estudio    { background:linear-gradient(135deg,#7c3aed,#a78bfa); }
+  .bloque-icono.ic-tecnica    { background:linear-gradient(135deg,#0d9488,#2dd4bf); }
+  .bloque-icono.ic-hallazgos  { background:linear-gradient(135deg,#d97706,#fbbf24); }
+  .bloque-icono.ic-conclusion { background:linear-gradient(135deg,#15803d,#4ade80); }
+  .bloque-nombre { font-size:12px; font-weight:800; color:#0f172a; text-transform:uppercase; letter-spacing:.08em; }
+  .bloque-badge { font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; }
+  .bloque-badge.completo { background:rgba(34,197,94,.12); color:#065f46; border:1px solid rgba(34,197,94,.25); }
+  .bloque-badge.vacio    { background:rgba(148,163,184,.12); color:#94a3b8; border:1px solid rgba(148,163,184,.22); }
+  .bloque-chars { font-size:10px; color:#94a3b8; font-family:monospace; }
+  .bloque-body { padding:0; }
+  .bloque-body .ck.ck-editor__main>.ck-editor__editable { min-height:80px!important; max-height:300px!important; font-family:'Inter',Arial,sans-serif!important; font-size:14px!important; line-height:1.7!important; color:#0f172a!important; padding:12px 16px!important; border:none!important; box-shadow:none!important; }
+  .bloque-editor[data-bloque="hallazgos"] .bloque-body .ck.ck-editor__main>.ck-editor__editable { min-height:160px!important; }
+  .bloque-body .ck.ck-toolbar { border-radius:0!important; border:none!important; border-bottom:1px solid rgba(148,163,184,.15)!important; background:rgba(248,250,252,.95)!important; padding:4px 8px!important; }
+  .bloque-body .ck.ck-editor__editable:not(.ck-editor__nested-editable).ck-focused { border:none!important; box-shadow:none!important; }
+  .bloque-footer { padding:6px 14px; border-top:1px solid rgba(148,163,184,.10); background:rgba(248,250,252,.6); display:flex; align-items:center; gap:8px; font-size:11px; color:#94a3b8; }
+  .bloque-tab-hint { margin-left:auto; font-size:10px; color:#cbd5e1; }
+
+  .txBottom { padding:14px 16px; border-top:1px solid rgba(148,163,184,.15); background:rgba(255,255,255,.62); display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; }
+  .btnAxis { height:44px; padding:0 18px; border-radius:14px; border:1px solid rgba(148,163,184,.28); background:rgba(255,255,255,.92); font-weight:900; display:inline-flex; align-items:center; gap:9px; cursor:pointer; font-size:13px; transition:.15s; user-select:none; }
+  .btnAxis:hover    { filter:brightness(1.04); transform:translateY(-1px); }
+  .btnAxis:active   { transform:translateY(1px); }
+  .btnAxis:disabled { opacity:.4; cursor:not-allowed; transform:none!important; filter:none!important; }
+  .btnPrimary { background:rgba(37,99,235,.95);  border-color:rgba(37,99,235,.25);  color:#fff; box-shadow:0 10px 24px rgba(37,99,235,.18); }
+  .btnDanger  { background:rgba(153,27,27,.95);  border-color:rgba(153,27,27,.25);  color:#fff; box-shadow:0 10px 24px rgba(153,27,27,.14); }
+  .btnSuccess { background:rgba(22,163,74,.92);  border-color:rgba(22,163,74,.22);  color:#fff; box-shadow:0 10px 24px rgba(22,163,74,.14); }
+  .btnWarning { background:rgba(217,119,6,.92);  border-color:rgba(217,119,6,.22);  color:#fff; box-shadow:0 10px 24px rgba(217,119,6,.14); }
+  .btnGhost   { background:rgba(255,255,255,.92); color:#334155; }
+  .btnBack    { background:rgba(15,76,129,.10);  border-color:rgba(15,76,129,.22);  color:#0f4c81; }
+  .btnDict    { background:rgba(139,92,246,.10); border-color:rgba(139,92,246,.28); color:#6d28d9; }
+  .spin { width:14px; height:14px; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:_spin .7s linear infinite; display:none; }
+  @keyframes _spin { to{transform:rotate(360deg)} }
+
+  .completitud-bar { padding:10px 16px; border-bottom:1px solid rgba(148,163,184,.10); background:rgba(248,250,252,.6); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .completitud-label { font-size:11px; font-weight:700; color:#64748b; }
+  .completitud-dots  { display:flex; gap:6px; }
+  .completitud-dot   { width:8px; height:8px; border-radius:50%; background:rgba(148,163,184,.3); transition:background .3s; }
+  .completitud-dot.lleno { background:#22c55e; }
+  .completitud-pct { font-size:12px; font-weight:800; color:#0f172a; margin-left:auto; }
+
+  .dict-overlay { position:fixed; inset:0; background:rgba(2,6,23,.45); backdrop-filter:blur(4px); z-index:1500; opacity:0; pointer-events:none; transition:opacity .25s; }
+  .dict-overlay.show { opacity:1; pointer-events:auto; }
+  .dict-panel { position:fixed; top:0; right:0; bottom:0; width:min(520px,100vw); background:#fff; box-shadow:-20px 0 60px rgba(2,6,23,.18); z-index:1501; display:flex; flex-direction:column; transform:translateX(100%); transition:transform .28s cubic-bezier(.4,0,.2,1); }
+  .dict-overlay.show .dict-panel { transform:translateX(0); }
+  .dp-header { padding:18px 20px; border-bottom:1px solid rgba(148,163,184,.18); background:linear-gradient(135deg,rgba(109,40,217,.06),rgba(139,92,246,.04)); display:flex; align-items:center; justify-content:space-between; gap:12px; flex-shrink:0; }
+  .dp-header .dph-title { font-size:16px; font-weight:900; color:#0f172a; display:flex; align-items:center; gap:10px; }
+  .dp-header .dph-title i { color:#7c3aed; font-size:18px; }
+  .dp-close { width:34px; height:34px; border-radius:10px; border:1px solid rgba(148,163,184,.28); background:rgba(255,255,255,.9); color:#64748b; cursor:pointer; display:grid; place-items:center; font-size:15px; transition:.14s; }
+  .dp-close:hover { background:rgba(239,68,68,.08); color:#dc2626; border-color:rgba(239,68,68,.25); }
+  .dp-search { padding:14px 20px; border-bottom:1px solid rgba(148,163,184,.12); flex-shrink:0; }
+  .dp-search-wrap { display:flex; align-items:center; gap:10px; padding:9px 14px; border-radius:12px; border:1px solid rgba(148,163,184,.28); background:rgba(248,250,252,.9); transition:.15s; }
+  .dp-search-wrap:focus-within { border-color:rgba(124,58,237,.5); box-shadow:0 0 0 3px rgba(124,58,237,.08); }
+  .dp-search-wrap i { color:#94a3b8; font-size:14px; }
+  .dp-search-wrap input { flex:1; border:none; outline:none; background:transparent; font-size:13px; color:#0f172a; }
+  .dp-search-wrap input::placeholder { color:#94a3b8; }
+  #dpSearchCount { font-size:11px; font-weight:700; color:#94a3b8; white-space:nowrap; }
+  .dp-add { padding:14px 20px; border-bottom:1px solid rgba(148,163,184,.12); background:rgba(109,40,217,.03); flex-shrink:0; }
+  .dp-add-title { font-size:11px; font-weight:800; color:#6d28d9; text-transform:uppercase; letter-spacing:.08em; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+  .dp-add-row { display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; }
+  .dp-field { display:flex; flex-direction:column; gap:5px; flex:1; min-width:140px; }
+  .dp-field label { font-size:11px; font-weight:700; color:#64748b; }
+  .dp-field input,.dp-field select { height:38px; border-radius:10px; border:1px solid rgba(148,163,184,.30); padding:0 12px; font-size:13px; outline:none; background:#fff; transition:.15s; }
+  .dp-field input:focus,.dp-field select:focus { border-color:rgba(124,58,237,.5); box-shadow:0 0 0 3px rgba(124,58,237,.08); }
+  .btn-add-term { height:38px; padding:0 16px; border-radius:10px; border:none; background:rgba(109,40,217,.92); color:#fff; font-size:13px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:7px; transition:.15s; white-space:nowrap; }
+  .btn-add-term:hover { transform:translateY(-1px); box-shadow:0 6px 16px rgba(109,40,217,.28); }
+  .dp-stats { padding:10px 20px; border-bottom:1px solid rgba(148,163,184,.12); display:flex; gap:16px; flex-wrap:wrap; align-items:center; flex-shrink:0; }
+  .dp-stat { display:flex; align-items:center; gap:6px; font-size:12px; color:#64748b; }
+  .dp-stat strong { color:#0f172a; font-weight:800; }
+  .dp-list { flex:1; overflow-y:auto; padding:8px 20px 20px; scrollbar-width:thin; scrollbar-color:rgba(148,163,184,.3) transparent; }
+  .dp-list::-webkit-scrollbar { width:6px; }
+  .dp-list::-webkit-scrollbar-thumb { background:rgba(148,163,184,.25); border-radius:999px; }
+  .dp-cat { margin-top:16px; }
+  .dp-cat-header { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-radius:10px; background:rgba(248,250,252,.9); border:1px solid rgba(148,163,184,.18); cursor:pointer; user-select:none; transition:.14s; margin-bottom:6px; }
+  .dp-cat-header:hover { background:rgba(109,40,217,.06); border-color:rgba(109,40,217,.18); }
+  .dp-cat-header.collapsed + .dp-cat-terms { display:none; }
+  .dp-cat-left { display:flex; align-items:center; gap:8px; }
+  .dp-cat-icon { width:26px; height:26px; border-radius:8px; display:grid; place-items:center; font-size:12px; color:#fff; flex-shrink:0; }
+  .dp-cat-name  { font-size:13px; font-weight:800; color:#0f172a; }
+  .dp-cat-count { font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:rgba(109,40,217,.10); color:#6d28d9; }
+  .dp-cat-arrow { font-size:11px; color:#94a3b8; transition:transform .2s; }
+  .dp-cat-header:not(.collapsed) .dp-cat-arrow { transform:rotate(90deg); }
+  .dp-cat-terms { display:flex; flex-wrap:wrap; gap:6px; padding:4px 4px 8px; }
+  .dp-term { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px; border:1px solid rgba(148,163,184,.22); background:rgba(255,255,255,.9); font-size:12px; font-weight:600; color:#334155; transition:.14s; }
+  .dp-term:hover { border-color:rgba(239,68,68,.30); background:rgba(239,68,68,.04); }
+  .dp-term:hover .term-del { opacity:1; }
+  .term-del { width:16px; height:16px; border-radius:50%; border:none; background:rgba(239,68,68,.15); color:#dc2626; cursor:pointer; display:grid; place-items:center; font-size:9px; opacity:0; transition:.14s; padding:0; flex-shrink:0; }
+  .term-del:hover { background:rgba(239,68,68,.3); }
+  .dp-empty { padding:40px 20px; text-align:center; color:#94a3b8; display:none; }
+  .dp-empty i { font-size:32px; margin-bottom:10px; display:block; }
+  .dp-empty p { font-size:13px; }
+  .dp-toast { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); padding:10px 18px; border-radius:12px; background:rgba(15,23,42,.92); color:#fff; font-size:12px; font-weight:700; white-space:nowrap; box-shadow:0 8px 24px rgba(0,0,0,.22); opacity:0; pointer-events:none; transition:opacity .2s; z-index:10; }
+  .dp-toast.show { opacity:1; }
+  .cat-radiologia{background:#0ea5ff} .cat-anatomia{background:#8b5cf6} .cat-procedimientos{background:#f59e0b}
+  .cat-medicamentos{background:#10b981} .cat-patologias{background:#ef4444} .cat-general{background:#64748b}
+  .cat-signos_alarma{background:#f97316} .cat-propios{background:#06b6d4}
+
+  .guia-dictado { background:#fff; border:1px solid #dbeafe; border-radius:18px; padding:20px; box-shadow:0 4px 18px rgba(15,23,42,.05); }
+  .guia-header  { display:flex; align-items:center; gap:10px; font-size:15px; font-weight:700; color:#0f172a; margin-bottom:16px; }
+  .guia-grid    { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+  .guia-item    { display:flex; gap:12px; background:#f8fafc; border-radius:12px; padding:12px; border:1px solid #e2e8f0; }
+  .guia-numero  { width:30px; height:30px; border-radius:50%; background:#0ea5e9; color:white; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0; }
+  .guia-titulo  { font-size:12px; font-weight:700; color:#0f172a; }
+  .guia-texto   { font-size:11px; color:#475569; line-height:1.5; margin-top:3px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="txWrap">
+  <div class="txCard">
+
+    <!-- TOP BAR -->
+    <div class="txTop">
+      <div class="txLeft">
+        <span class="pill"><i class="fa-solid fa-wave-square"></i> Transcripción</span>
+        <div class="fileName">
+          <div class="h">{{ job.proc_nombre }}</div>
+          <div class="s" id="fileLabel">{{ job.audio_nombre_original or 'Audio cargado' }}</div>
+        </div>
+        <span class="pill warn" id="pendingPill" style="display:none">
+          <i class="fa-solid fa-hourglass-half"></i> Cambios pendientes
+        </span>
+        <span class="pill ok" id="savedPill" style="display:none">
+          <i class="fa-solid fa-circle-check"></i> Guardado en HC
+        </span>
+      </div>
+      <div class="txRight">
+        <div class="ctrl">
+          <span class="pill"><i class="fa-solid fa-volume-high"></i> <b id="volLbl">100%</b></span>
+          <input class="rng" id="vol" type="range" min="0" max="100" value="100">
+        </div>
+        <div class="ctrl">
+          <span class="pill"><i class="fa-solid fa-gauge-high"></i> Speed</span>
+          <select class="sel" id="speed">
+            <option value="0.75">0.75x</option>
+            <option value="1" selected>1x</option>
+            <option value="1.25">1.25x</option>
+            <option value="1.5">1.5x</option>
+            <option value="2">2x</option>
+          </select>
+        </div>
+        <button class="btnAxis btnDict" id="btnDiccionario">
+          <i class="fa-solid fa-book-medical"></i> Diccionario
+        </button>
+        <button class="btnAxis btnBack" onclick="history.back()">
+          <i class="fa-solid fa-arrow-left"></i> Volver
+        </button>
+      </div>
+    </div>
+
+    <!-- BARRA PACIENTE — campos ampliados -->
+    <div class="patientBar">
+      <div class="pb-field">
+        <div class="pf-label"><i class="fa-solid fa-hashtag"></i> Nro. Interno</div>
+        <div class="pf-val blue">{{ job.nro_interno }}</div>
+      </div>
+      <div class="pb-field">
+        <div class="pf-label"><i class="fa-solid fa-user-injured"></i> Paciente</div>
+        <div class="pf-val blue">{{ job.paciente_nombre }}</div>
+      </div>
+      <div class="pb-field">
+        <div class="pf-label"><i class="fa-solid fa-id-card"></i> Documento</div>
+        <div class="pf-val">{{ job.paciente_doc }}</div>
+      </div>
+      {% if job.paciente_telefono %}
+      <div class="pb-field">
+        <div class="pf-label"><i class="fa-solid fa-phone"></i> Teléfono</div>
+        <div class="pf-val">{{ job.paciente_telefono }}</div>
+      </div>
+      {% endif %}
+      <div class="pb-field">
+        <div class="pf-label"><i class="fa-solid fa-stethoscope"></i> Procedimiento</div>
+        <div class="pf-val">{{ job.proc_nombre }}</div>
+      </div>
+      {% if job.codigo_cups %}
+      <div class="pb-field">
+        <div class="pf-label"><i class="fa-solid fa-barcode"></i> CUPS</div>
+        <div class="pf-val" style="font-family:monospace;">{{ job.codigo_cups }}</div>
+      </div>
+      {% endif %}
+      {% if job.valor_procedimiento %}
+      <div class="pb-field">
+        <div class="pf-label"><i class="fa-solid fa-dollar-sign"></i> Valor</div>
+        <div class="pf-val">${{ '{:,.0f}'.format(job.valor_procedimiento) }}</div>
+      </div>
+      {% endif %}
+      {% if job.nro_factura %}
+      <div class="pb-field">
+        <div class="pf-label"><i class="fa-solid fa-file-invoice"></i> Prefactura</div>
+        <div class="pf-val">{{ job.nro_factura }}</div>
+      </div>
+      {% endif %}
+      <div class="pb-field" style="margin-left:auto;">
+        <div class="pf-label">Job ID</div>
+        <div class="pf-val" style="font-size:10px;color:#94a3b8;font-family:monospace;">{{ job.id[:8] }}...</div>
+      </div>
+    </div>
+
+    <!-- BARRA PROGRESO -->
+    <div class="job-status-bar" id="jobStatusBar">
+      <div class="jsb-header">
+        <div class="jsb-label" id="jsbLabel">
+          <i class="fa-solid fa-circle-notch fa-spin" id="jsbIcon"></i>
+          <span id="jsbTexto">Iniciando transcripción...</span>
+        </div>
+        <span class="pill" id="jsbTiempo" style="display:none">
+          <i class="fa-solid fa-clock"></i>
+          <span id="jsbSegundos">0</span>s
+        </span>
+      </div>
+      <div class="jsb-progress-wrap">
+        <div class="jsb-progress-bar indeterminate" id="jsbBar"></div>
+      </div>
+      <div class="jsb-steps">
+        <span class="jsb-step" id="step-upload">① Audio recibido</span>
+        <span class="jsb-step" id="step-ffmpeg">② Procesando audio</span>
+        <span class="jsb-step" id="step-stt">③ Transcribiendo (Groq)</span>
+        <span class="jsb-step" id="step-llm">④ Estructurando informe</span>
+        <span class="jsb-step" id="step-done">⑤ Listo</span>
+      </div>
+    </div>
+
+    <!-- PLAYER -->
+    <div class="txPlayer" id="playerSection">
+      <audio id="audio" controls preload="metadata">
+        <source id="audioSrc" src="{{ audio_url }}" type="audio/mpeg">
+      </audio>
+      <div class="shortcuts-panel" id="shortcutsPanel">
+        <div class="sp-header">
+          <div class="sp-title"><i class="fa-solid fa-keyboard"></i> Atajos</div>
+          <div class="sp-mode-toggle">
+            <button class="sp-mode-btn active" id="btnModeES"     onclick="setMode('express')">ES</button>
+            <button class="sp-mode-btn"        id="btnModeCustom" onclick="setMode('custom')">MX</button>
+          </div>
+        </div>
+        <div id="scRows"></div>
+      </div>
+    </div>
+
+    <!-- BARRA DE COMPLETITUD -->
+    <div class="completitud-bar" id="completitudBar">
+      <span class="completitud-label">Completitud del informe</span>
+      <div class="completitud-dots">
+        <div class="completitud-dot" id="dot-paciente"   title="Paciente"></div>
+        <div class="completitud-dot" id="dot-estudio"    title="Estudio"></div>
+        <div class="completitud-dot" id="dot-tecnica"    title="Técnica"></div>
+        <div class="completitud-dot" id="dot-hallazgos"  title="Hallazgos"></div>
+        <div class="completitud-dot" id="dot-conclusion" title="Conclusión"></div>
+      </div>
+      <span class="completitud-pct" id="completitudPct">0 / 5 bloques</span>
+    </div>
+
+    <!-- EDITOR POR BLOQUES -->
+    <div class="bloques-editor">
+      <div class="bloques-header">
+        <div class="bloques-title"><i class="fa-solid fa-file-medical"></i> Informe Radiológico — Edición por bloques</div>
+        <div class="bloques-hint"><i class="fa-solid fa-keyboard"></i> Tab para navegar entre bloques</div>
+      </div>
+
+      <div class="bloque-editor bloque-vacio" id="bloque-paciente" data-bloque="paciente">
+        <div class="bloque-head" onclick="toggleBloque('paciente')">
+          <div class="bloque-head-left"><div class="bloque-icono ic-paciente"><i class="fa-solid fa-user"></i></div><span class="bloque-nombre">Paciente</span></div>
+          <div style="display:flex;align-items:center;gap:8px;"><span class="bloque-chars" id="chars-paciente">0 chars</span><span class="bloque-badge vacio" id="badge-paciente">Vacío</span></div>
+        </div>
+        <div class="bloque-body"><div id="ck-paciente"></div></div>
+        <div class="bloque-footer"><i class="fa-solid fa-circle-info" style="color:#cbd5e1"></i> Nombre completo e identificación del paciente <span class="bloque-tab-hint">Tab →</span></div>
+      </div>
+
+      <div class="bloque-editor bloque-vacio" id="bloque-estudio" data-bloque="estudio">
+        <div class="bloque-head" onclick="toggleBloque('estudio')">
+          <div class="bloque-head-left"><div class="bloque-icono ic-estudio"><i class="fa-solid fa-x-ray"></i></div><span class="bloque-nombre">Estudio</span></div>
+          <div style="display:flex;align-items:center;gap:8px;"><span class="bloque-chars" id="chars-estudio">0 chars</span><span class="bloque-badge vacio" id="badge-estudio">Vacío</span></div>
+        </div>
+        <div class="bloque-body"><div id="ck-estudio"></div></div>
+        <div class="bloque-footer"><i class="fa-solid fa-circle-info" style="color:#cbd5e1"></i> Tipo de estudio: TAC, Rx, Ecografía, RM, Hemodinamia <span class="bloque-tab-hint">Tab →</span></div>
+      </div>
+
+      <div class="bloque-editor bloque-vacio" id="bloque-tecnica" data-bloque="tecnica">
+        <div class="bloque-head" onclick="toggleBloque('tecnica')">
+          <div class="bloque-head-left"><div class="bloque-icono ic-tecnica"><i class="fa-solid fa-gears"></i></div><span class="bloque-nombre">Técnica</span></div>
+          <div style="display:flex;align-items:center;gap:8px;"><span class="bloque-chars" id="chars-tecnica">0 chars</span><span class="bloque-badge vacio" id="badge-tecnica">Vacío</span></div>
+        </div>
+        <div class="bloque-body"><div id="ck-tecnica"></div></div>
+        <div class="bloque-footer"><i class="fa-solid fa-circle-info" style="color:#cbd5e1"></i> Técnica y protocolo utilizado <span class="bloque-tab-hint">Tab →</span></div>
+      </div>
+
+      <div class="bloque-editor bloque-vacio" id="bloque-hallazgos" data-bloque="hallazgos">
+        <div class="bloque-head" onclick="toggleBloque('hallazgos')">
+          <div class="bloque-head-left"><div class="bloque-icono ic-hallazgos"><i class="fa-solid fa-magnifying-glass"></i></div><span class="bloque-nombre">Hallazgos</span></div>
+          <div style="display:flex;align-items:center;gap:8px;"><span class="bloque-chars" id="chars-hallazgos">0 chars</span><span class="bloque-badge vacio" id="badge-hallazgos">Vacío</span></div>
+        </div>
+        <div class="bloque-body"><div id="ck-hallazgos"></div></div>
+        <div class="bloque-footer"><i class="fa-solid fa-circle-info" style="color:#cbd5e1"></i> Hallazgos anatómicos y radiológicos completos <span class="bloque-tab-hint">Tab →</span></div>
+      </div>
+
+      <div class="bloque-editor bloque-vacio" id="bloque-conclusion" data-bloque="conclusion">
+        <div class="bloque-head" onclick="toggleBloque('conclusion')">
+          <div class="bloque-head-left"><div class="bloque-icono ic-conclusion"><i class="fa-solid fa-file-waveform"></i></div><span class="bloque-nombre">Conclusión</span></div>
+          <div style="display:flex;align-items:center;gap:8px;"><span class="bloque-chars" id="chars-conclusion">0 chars</span><span class="bloque-badge vacio" id="badge-conclusion">Vacío</span></div>
+        </div>
+        <div class="bloque-body"><div id="ck-conclusion"></div></div>
+        <div class="bloque-footer"><i class="fa-solid fa-circle-info" style="color:#cbd5e1"></i> Impresión diagnóstica final</div>
+      </div>
+
+    </div>
+
+    <!-- ACCIONES — botones emparejados con informe_radio -->
+    <div class="txBottom">
+      <button class="btnAxis btnDanger" id="btnReprocesar" style="display:none">
+        <span class="spin" id="spinReprocesar"></span>
+        <i class="fa-solid fa-rotate-right" id="icoReprocesar"></i> Re-procesar
+      </button>
+      <button class="btnAxis btnWarning" id="btnGuardar" disabled>
+        <span class="spin" id="spinGuardar"></span>
+        <i class="fa-solid fa-floppy-disk" id="icoGuardar"></i>
+        Guardar
+      </button>
+      <button class="btnAxis btnGhost" id="btnCopiar">
+        <i class="fa-regular fa-copy"></i> Copiar todo
+      </button>
+      <button class="btnAxis btnSuccess" id="btnWord">
+        <span class="spin" id="spinWord"></span>
+        <i class="fa-solid fa-file-word" id="icoWord"></i> Word
+      </button>
+      <button class="btnAxis btnPrimary" id="btnPdf">
+        <span class="spin" id="spinPdf"></span>
+        <i class="fa-solid fa-file-pdf" id="icoPdf"></i> PDF
+      </button>
+    </div>
+
+  </div>
+
+  <!-- GUÍA PROTOCOLO -->
+  <div class="guia-dictado">
+    <div class="guia-header"><i class="fa-solid fa-stethoscope"></i> Protocolo de Dictado Radiológico</div>
+    <div class="guia-grid">
+      <div class="guia-item"><div class="guia-numero">1</div><div><div class="guia-titulo">PACIENTE</div><div class="guia-texto">Nombre completo e identificación.</div></div></div>
+      <div class="guia-item"><div class="guia-numero">2</div><div><div class="guia-titulo">ESTUDIO</div><div class="guia-texto">Tipo: TAC, Rx, Eco, RM, Hemodinamia.</div></div></div>
+      <div class="guia-item"><div class="guia-numero">3</div><div><div class="guia-titulo">TÉCNICA</div><div class="guia-texto">Técnica y protocolo utilizado.</div></div></div>
+      <div class="guia-item"><div class="guia-numero">4</div><div><div class="guia-titulo">HALLAZGOS</div><div class="guia-texto">Hallazgos anatómicos y radiológicos.</div></div></div>
+      <div class="guia-item"><div class="guia-numero">5</div><div><div class="guia-titulo">CONCLUSIÓN</div><div class="guia-texto">Impresión diagnóstica final.</div></div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- PANEL DICCIONARIO -->
+<div class="dict-overlay" id="dictOverlay">
+  <div class="dict-panel" id="dictPanel">
+    <div class="dp-header">
+      <div class="dph-title"><i class="fa-solid fa-book-medical"></i> Diccionario Médico</div>
+      <button class="dp-close" id="dpClose"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="dp-search">
+      <div class="dp-search-wrap">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" id="dpSearchInput" placeholder="Buscar término...">
+        <span id="dpSearchCount"></span>
+      </div>
+    </div>
+    <div class="dp-add">
+      <div class="dp-add-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Agregar corrección automática</div>
+      <div class="dp-add-row">
+        <div class="dp-field"><label>Texto incorrecto</label><input type="text" id="dpIncorrecto" placeholder="ej: telextacia" maxlength="80"></div>
+        <div class="dp-field"><label>Texto correcto</label><input type="text" id="dpCorrecto" placeholder="ej: atelectasia" maxlength="80"></div>
+        <button class="btn-add-term" id="dpBtnCorreccion"><i class="fa-solid fa-wand-magic-sparkles"></i> Corregir</button>
+      </div>
+      <div class="dp-add-title" style="margin-top:14px;"><i class="fa-solid fa-plus"></i> Agregar término</div>
+      <div class="dp-add-row">
+        <div class="dp-field"><label>Término</label><input type="text" id="dpTermInput" placeholder="ej: histopatológico" maxlength="80"></div>
+        <div class="dp-field" style="max-width:160px;"><label>Categoría</label>
+          <select id="dpCatSelect">
+            <option value="propios">Propios</option>
+            <option value="radiologia">Radiología</option>
+            <option value="anatomia">Anatomía</option>
+            <option value="procedimientos">Procedimientos</option>
+            <option value="medicamentos">Medicamentos</option>
+            <option value="patologias">Patologías</option>
+            <option value="general">General</option>
+            <option value="signos_alarma">Signos de alarma</option>
+          </select>
+        </div>
+        <button class="btn-add-term" id="dpBtnAgregar"><i class="fa-solid fa-plus"></i> Agregar</button>
+      </div>
+    </div>
+    <div class="dp-stats">
+      <div class="dp-stat"><i class="fa-solid fa-list" style="color:#7c3aed;"></i> Total: <strong id="dpTotalCount">0</strong> términos</div>
+      <div class="dp-stat"><i class="fa-solid fa-folder" style="color:#0ea5ff;"></i> <strong id="dpCatCount">0</strong> categorías</div>
+    </div>
+    <div class="dp-list" id="dpList">
+      <div class="dp-empty" id="dpEmpty"><i class="fa-solid fa-magnifying-glass"></i><p>No se encontraron términos</p></div>
+    </div>
+    <div class="dp-toast" id="dpToast"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{# ── DOMPurify para sanitizar HTML clínico ── #}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.5/purify.min.js"></script>
+
+<script>
+(function() {
+  var htmlClinico = null;
+  try {
+    var raw = {{ (job.html_clinico or '') | tojson }};
+    if (raw && raw.length > 0) {
+      htmlClinico = (typeof DOMPurify !== 'undefined')
+        ? DOMPurify.sanitize(raw, {
+            ALLOWED_TAGS: ['p','br','b','strong','em','ul','ol','li','h1','h2','h3','span','div','h4','h5'],
+            ALLOWED_ATTR: ['class','style']
+          })
+        : raw;
+    }
+  } catch(e) { htmlClinico = null; }
+
+  var estructura = null;
+  try {
+    var rawEst = {{ job.estructura | tojson if job.estructura else 'null' }};
+    if (rawEst && typeof rawEst === 'object') { estructura = rawEst; }
+  } catch(e) { estructura = null; }
+
+  window.TX_JOB = {
+    id:                  "{{ job.id }}",
+    estado:              "{{ job.estado }}",
+    proc_nombre:         {{ job.proc_nombre | tojson }},
+    paciente_nombre:     {{ job.paciente_nombre | tojson }},
+    paciente_doc:        {{ (job.paciente_doc or '') | tojson }},
+    paciente_telefono:   {{ (job.paciente_telefono or '') | tojson }},
+    nro_interno:         {{ job.nro_interno | tojson }},
+    nro_factura:         {{ (job.nro_factura or '') | tojson }},
+    codigo_cups:         {{ (job.codigo_cups or '') | tojson }},
+    valor_procedimiento: {{ job.valor_procedimiento or 0 }},
+    audio_url:           {{ (audio_url or '') | tojson }},
+    html_clinico:        htmlClinico,
+    estructura:          estructura,
+    duracion:            {{ job.duracion_proceso_seg or 0 }},
+  };
+})();
+</script>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
+<script src="{{ url_for('static', filename='js/autocomplete.js') }}"></script>
+<script src="{{ url_for('static', filename='js/transcripcion.js') }}"></script>
+{% endblock %}

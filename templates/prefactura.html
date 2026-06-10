@@ -1,0 +1,571 @@
+{% extends "base.html" %}
+
+{% block title %}VITACORE · Prefacturas Radiología{% endblock %}
+{% block header_icon %}<i class="fa-solid fa-file-invoice"></i>{% endblock %}
+{% block header_title %}Transcripcion{% endblock %}
+{% block header_subtitle %}Gestión de estudios e informes{% endblock %}
+
+{% block extra_css %}
+<style>
+  .pfWrap { max-width:1380px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+
+  /* ── Filtros ── */
+  .pfFiltros {
+    background:rgba(255,255,255,.85); border-radius:16px;
+    border:1px solid rgba(148,163,184,.18);
+    padding:14px 18px;
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  }
+  .pfFiltros input, .pfFiltros select {
+    height:38px; border-radius:10px;
+    border:1px solid rgba(148,163,184,.28);
+    background:rgba(255,255,255,.9);
+    padding:0 12px; font-size:13px; outline:none;
+    transition:.15s;
+  }
+  .pfFiltros input:focus, .pfFiltros select:focus {
+    border-color:rgba(37,99,235,.45);
+    box-shadow:0 0 0 3px rgba(37,99,235,.08);
+  }
+  .pfFiltros input { flex:1; min-width:200px; }
+
+  /* ── Lista de prefacturas ── */
+  .pfList { display:flex; flex-direction:column; gap:10px; }
+
+  .pfCard {
+    background:rgba(255,255,255,.85);
+    border-radius:16px;
+    border:1px solid rgba(148,163,184,.18);
+    overflow:hidden;
+    transition:box-shadow .2s;
+  }
+  .pfCard:hover { box-shadow:0 8px 28px rgba(2,6,23,.08); }
+
+  /* Header de la prefactura */
+  .pfCardHead {
+    padding:14px 18px;
+    display:grid;
+    grid-template-columns: 1fr 320px 160px;
+    align-items:center;
+    gap:12px;
+    border-bottom:1px solid rgba(148,163,184,.12);
+    background:rgba(248,250,252,.8);
+    cursor:pointer; user-select:none;
+  }
+  .pfCardHead:hover { background:rgba(37,99,235,.03); }
+
+  .pfPaciente { display:flex; flex-direction:column; gap:2px; }
+  .pfNombre   { font-size:15px; font-weight:800; color:#0f172a; }
+  .pfDoc      { font-size:12px; color:#64748b; }
+
+  .pfMeta {display:grid;grid-template-columns: 110px 110px 90px;align-items:center;gap:0;}
+  .pfMetaItem { display:flex; flex-direction:column; gap:1px; min-width:90px; }
+  .pfMetaLabel { font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; }
+  .pfMetaVal   { font-size:13px; font-weight:700; color:#0f172a; }
+
+  .pfBadge {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:4px 10px; border-radius:999px;
+    font-size:11px; font-weight:700;
+  }
+  .pfBadge.sin-informe  { background:rgba(148,163,184,.12); color:#64748b; border:1px solid rgba(148,163,184,.22); }
+  .pfBadge.borrador     { background:rgba(245,158,11,.12); color:#92400e; border:1px solid rgba(245,158,11,.28); }
+  .pfBadge.pendiente    { background:rgba(37,99,235,.10); color:#1e40af; border:1px solid rgba(37,99,235,.28); }
+  .pfBadge.en-correccion{ background:rgba(239,68,68,.10); color:#991b1b; border:1px solid rgba(239,68,68,.28); }
+  .pfBadge.liberado     { background:rgba(34,197,94,.12); color:#065f46; border:1px solid rgba(34,197,94,.28); }
+
+  /* Procedimientos dentro de la prefactura */
+  .pfItems { padding:0; display:none; }
+  .pfItems.visible { display:block; }
+
+  .pfItem {
+    padding:12px 18px;
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px; flex-wrap:wrap;
+    border-bottom:1px solid rgba(148,163,184,.08);
+  }
+  .pfItem:last-child { border-bottom:none; }
+
+  .pfItemInfo { display:flex; flex-direction:column; gap:2px; flex:1; min-width:200px; }
+  .pfItemNombre { font-size:13px; font-weight:700; color:#0f172a; }
+  .pfItemCups   { font-size:11px; color:#94a3b8; font-family:monospace; }
+
+  .pfItemAcciones { display:flex; gap:8px; flex-wrap:wrap; }
+
+  .btnSm {
+    height:34px; padding:0 12px; border-radius:10px;
+    border:1px solid rgba(148,163,184,.28);
+    background:rgba(255,255,255,.92);
+    font-weight:700; font-size:12px;
+    display:inline-flex; align-items:center; gap:6px;
+    cursor:pointer; transition:.14s; white-space:nowrap;
+  }
+  .btnSm:hover { filter:brightness(1.04); transform:translateY(-1px); }
+  .btnSm.audio  { background:rgba(124,58,237,.92); color:#fff; border-color:rgba(124,58,237,.25); box-shadow:0 4px 12px rgba(124,58,237,.2); }
+  .btnSm.manual { background:rgba(15,76,129,.92);  color:#fff; border-color:rgba(15,76,129,.25);  box-shadow:0 4px 12px rgba(15,76,129,.2); }
+  .btnSm.ver    { background:rgba(34,197,94,.92);  color:#fff; border-color:rgba(34,197,94,.25);  box-shadow:0 4px 12px rgba(34,197,94,.2); }
+  .btnSm.disabled { opacity:.4; cursor:not-allowed; transform:none!important; filter:none!important; }
+
+  .pfItemEstado { font-size:11px; }
+
+  /* Estado del informe por item */
+  .itemBadge {
+    display:inline-flex; align-items:center; gap:4px;
+    padding:3px 8px; border-radius:999px;
+    font-size:10px; font-weight:700;
+  }
+  .itemBadge.none      { background:rgba(148,163,184,.12); color:#94a3b8; }
+  .itemBadge.borrador  { background:rgba(245,158,11,.12); color:#92400e; }
+  .itemBadge.pendiente { background:rgba(37,99,235,.10); color:#1e40af; }
+  .itemBadge.liberado  { background:rgba(34,197,94,.12); color:#065f46; }
+  .itemBadge.correccion{ background:rgba(239,68,68,.10); color:#991b1b; }
+
+  /* Empty state */
+  .pfEmpty {
+    text-align:center; padding:60px 20px;
+    color:#94a3b8; font-size:14px;
+  }
+  .pfEmpty i { font-size:48px; margin-bottom:16px; display:block; }
+
+  /* Loading */
+  .pfLoading { text-align:center; padding:40px; color:#94a3b8; }
+  .pfLoading i { font-size:28px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pfWrap">
+
+  <!-- Filtros -->
+  <div class="pfFiltros">
+    <i class="fa-solid fa-magnifying-glass" style="color:#94a3b8;"></i>
+    <input type="text" id="buscarInput" placeholder="Buscar por paciente, documento o # prefactura...">
+    <select id="filtroEstado">
+      <option value="">Todos los estados</option>
+      <option value="sin-informe">Sin informe</option>
+      <option value="borrador">Borrador</option>
+      <option value="pendiente_revision">Pendiente revisión</option>
+      <option value="en_correccion">En corrección</option>
+      <option value="liberado">Liberado</option>
+    </select>
+    <span style="font-size:12px;color:#94a3b8;" id="contadorResultados"></span>
+  </div>
+
+  <!-- Lista -->
+  <div class="pfList" id="pfList">
+    <div class="pfLoading">
+      <i class="fa-solid fa-circle-notch fa-spin"></i>
+      <p style="margin-top:12px;">Cargando prefacturas...</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal selección de transcripción -->
+<div id="modalTranscripcion" style="
+  display:none; position:fixed; inset:0; z-index:2000;
+  background:rgba(2,6,23,.5); backdrop-filter:blur(4px);
+  align-items:center; justify-content:center;">
+  <div style="
+    background:#fff; border-radius:20px; padding:28px;
+    width:min(480px,90vw); box-shadow:0 24px 64px rgba(2,6,23,.2);">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div>
+        <div style="font-size:16px;font-weight:900;color:#0f172a;">Tipo de transcripción</div>
+        <div id="modalProcNombre" style="font-size:13px;color:#64748b;margin-top:2px;"></div>
+      </div>
+      <button onclick="cerrarModal()" style="
+        width:34px;height:34px;border-radius:10px;border:1px solid rgba(148,163,184,.28);
+        background:rgba(255,255,255,.9);cursor:pointer;display:grid;place-items:center;font-size:15px;">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+
+      <!-- Opción Audio -->
+      <button onclick="seleccionarTipo('audio')" style="
+        padding:20px; border-radius:14px; border:2px solid rgba(124,58,237,.2);
+        background:rgba(124,58,237,.04); cursor:pointer; text-align:center;
+        transition:.15s;" onmouseover="this.style.borderColor='rgba(124,58,237,.5)'"
+        onmouseout="this.style.borderColor='rgba(124,58,237,.2)'">
+        <i class="fa-solid fa-microphone" style="font-size:28px;color:#7c3aed;margin-bottom:10px;display:block;"></i>
+        <div style="font-size:14px;font-weight:800;color:#0f172a;">Audio</div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;">Pipeline IA — Groq STT</div>
+      </button>
+
+      <!-- Opción Manual -->
+      <button onclick="seleccionarTipo('manual')" style="
+        padding:20px; border-radius:14px; border:2px solid rgba(15,76,129,.2);
+        background:rgba(15,76,129,.04); cursor:pointer; text-align:center;
+        transition:.15s;" onmouseover="this.style.borderColor='rgba(15,76,129,.5)'"
+        onmouseout="this.style.borderColor='rgba(15,76,129,.2)'">
+        <i class="fa-solid fa-file-word" style="font-size:28px;color:#0f4c81;margin-bottom:10px;display:block;"></i>
+        <div style="font-size:14px;font-weight:800;color:#0f172a;">Manual</div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;">Plantilla Word</div>
+      </button>
+    </div>
+
+    <!-- Selector de plantilla (solo para manual) -->
+    <div id="selectorPlantilla" style="display:none;margin-bottom:16px;">
+      <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">
+        Seleccionar plantilla
+      </label>
+      <select id="plantillaSelect" style="
+        width:100%;height:40px;border-radius:10px;
+        border:1px solid rgba(148,163,184,.28);
+        padding:0 12px;font-size:13px;outline:none;">
+        <option value="">Cargando plantillas...</option>
+      </select>
+    </div>
+
+    <button id="btnIniciarTranscripcion" onclick="iniciarTranscripcion()" disabled style="
+      width:100%;height:44px;border-radius:12px;border:none;
+      background:rgba(37,99,235,.95);color:#fff;
+      font-size:14px;font-weight:800;cursor:pointer;
+      opacity:.4;transition:.15s;">
+      <i class="fa-solid fa-play"></i> Iniciar transcripción
+    </button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Estado global
+const PF = {
+  prefacturas:    [],
+  filtradas:      [],
+  tipoSeleccionado: null,
+  itemSeleccionado: null,
+  prefacturaSeleccionada: null,
+};
+
+// ── Cargar prefacturas ────────────────────────────────────────────
+async function cargarPrefacturas() {
+  try {
+    const resp = await fetch("/api/prefacturas");
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error);
+
+    PF.prefacturas = data.prefacturas || [];
+    PF.filtradas   = [...PF.prefacturas];
+    renderizarLista(PF.filtradas);
+    document.getElementById("contadorResultados").textContent =
+      `${PF.prefacturas.length} prefactura${PF.prefacturas.length !== 1 ? "s" : ""}`;
+  } catch(e) {
+    document.getElementById("pfList").innerHTML = `
+      <div class="pfEmpty">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <p>Error al cargar prefacturas: ${e.message}</p>
+      </div>`;
+  }
+}
+
+// ── Renderizar lista ──────────────────────────────────────────────
+function renderizarLista(lista) {
+  const el = document.getElementById("pfList");
+
+  if (!lista.length) {
+    el.innerHTML = `<div class="pfEmpty"><i class="fa-solid fa-file-circle-xmark"></i><p>No se encontraron prefacturas</p></div>`;
+    return;
+  }
+
+  el.innerHTML = lista.map(pf => {
+    const pac     = pf.paciente || {};
+    const nombre = pac.nombre_completo
+        || `${pac.primer_nombre||""} ${pac.segundo_nombre||""} ${pac.primer_apellido||""} ${pac.segundo_apellido||""}`.replace(/\s+/g," ").trim()
+        || "Paciente sin nombre";
+    const doc     = pac.numero_documento ? `Doc: ${pac.numero_documento}` : "";
+    const estadoInforme = pf.estado_informe_radio || "sin-informe";
+    const badgeClass    = estadoInforme === "sin-informe" ? "sin-informe"
+                        : estadoInforme === "pendiente_revision" ? "pendiente"
+                        : estadoInforme;
+    const badgeLabel    = {
+      "sin-informe":      "Sin informe",
+      "borrador":         "Borrador",
+      "pendiente":        "Pendiente revisión",
+      "en_correccion":    "En corrección",
+      "liberado":         "✓ Liberado",
+    }[badgeClass] || estadoInforme;
+
+    const fecha = pf.periodo_inicio
+      ? new Date(pf.periodo_inicio).toLocaleDateString("es-CO")
+      : "";
+
+    const items = (pf.items || []).map(item => renderizarItem(item, pf, pf.informes || [])).join("");
+
+    return `
+    <div class="pfCard" id="pf-${pf.id}">
+      <div class="pfCardHead" onclick="toggleItems(${pf.id})">
+        <div class="pfPaciente">
+          <div class="pfNombre">${esc(nombre)}</div>
+          <div class="pfDoc">${esc(doc)}</div>
+        </div>
+        <div class="pfMeta">
+          <div class="pfMetaItem">
+            <div class="pfMetaLabel">Prefactura</div>
+            <div class="pfMetaVal">#${pf.id}</div>
+          </div>
+          <div class="pfMetaItem">
+            <div class="pfMetaLabel">Fecha</div>
+            <div class="pfMetaVal">${fecha}</div>
+          </div>
+          <div class="pfMetaItem">
+            <div class="pfMetaLabel">Estudios</div>
+            <div class="pfMetaVal">${(pf.items||[]).length}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="pfBadge ${badgeClass}">${badgeLabel}</span>
+          <i class="fa-solid fa-chevron-down" id="chevron-${pf.id}" style="color:#94a3b8;font-size:12px;transition:transform .2s;"></i>
+        </div>
+      </div>
+      <div class="pfItems" id="items-${pf.id}">
+        ${items || `<div style="padding:16px 18px;color:#94a3b8;font-size:13px;">Sin procedimientos registrados</div>`}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function renderizarItem(item, pf, informes) {
+  // Buscar informe existente para este procedimiento
+  const informe = informes.find(i =>
+    i.proc_id === String(item.cita_procedimiento_id) ||
+    i.proc_id === String(item.id)
+  );
+
+  const tieneInforme = !!informe;
+  const estadoInforme = informe?.estado || null;
+
+  const badgeI = !tieneInforme   ? '<span class="itemBadge none">Sin informe</span>'
+    : estadoInforme === "borrador"           ? '<span class="itemBadge borrador">Borrador</span>'
+    : estadoInforme === "pendiente_revision" ? '<span class="itemBadge pendiente">Pendiente revisión</span>'
+    : estadoInforme === "en_correccion"      ? '<span class="itemBadge correccion">En corrección</span>'
+    : estadoInforme === "liberado"           ? '<span class="itemBadge liberado">✓ Liberado</span>'
+    : "";
+
+  const btnAudio  = !tieneInforme
+    ? `<button class="btnSm audio" onclick="abrirModal(event,${pf.id},'audio','${esc(item.descripcion||"")}','${item.cita_procedimiento_id||item.id}','${esc(String(pf.paciente_id))}')">
+         <i class="fa-solid fa-microphone"></i> Audio
+       </button>` : "";
+
+  const btnManual = !tieneInforme
+    ? `<button class="btnSm manual" onclick="abrirModal(event,${pf.id},'manual','${esc(item.descripcion||"")}','${item.cita_procedimiento_id||item.id}','${esc(String(pf.paciente_id))}')">
+         <i class="fa-solid fa-file-word"></i> Manual
+       </button>` : "";
+
+  const btnVer = tieneInforme
+    ? `<button class="btnSm ver" onclick="verInforme('${informe.id}')">
+         <i class="fa-solid fa-eye"></i> Ver informe
+       </button>` : "";
+
+  return `
+  <div class="pfItem">
+    <div class="pfItemInfo">
+      <div class="pfItemNombre">${esc(item.descripcion || "Procedimiento")}</div>
+      <div class="pfItemCups">${item.codigo_cups || ""}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      ${badgeI}
+      <div class="pfItemAcciones">
+        ${btnAudio}${btnManual}${btnVer}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Toggle mostrar/ocultar items ──────────────────────────────────
+function toggleItems(pfId) {
+  const el  = document.getElementById(`items-${pfId}`);
+  const ch  = document.getElementById(`chevron-${pfId}`);
+  const vis = el.classList.toggle("visible");
+  ch.style.transform = vis ? "rotate(180deg)" : "";
+}
+
+// ── Modal transcripción ───────────────────────────────────────────
+function abrirModal(evt, pfId, tipoInicial, procNombre, procId, pacienteId) {
+  evt.stopPropagation();
+
+  PF.prefacturaSeleccionada = pfId;
+  PF.itemSeleccionado       = { procId, procNombre, pacienteId };
+  PF.tipoSeleccionado       = null;
+
+  document.getElementById("modalProcNombre").textContent = procNombre;
+  document.getElementById("selectorPlantilla").style.display = "none";
+  document.getElementById("btnIniciarTranscripcion").disabled = true;
+  document.getElementById("btnIniciarTranscripcion").style.opacity = ".4";
+
+  document.getElementById("modalTranscripcion").style.display = "flex";
+
+  if (tipoInicial) seleccionarTipo(tipoInicial);
+}
+
+function cerrarModal() {
+  document.getElementById("modalTranscripcion").style.display = "none";
+}
+
+async function seleccionarTipo(tipo) {
+  PF.tipoSeleccionado = tipo;
+  document.getElementById("btnIniciarTranscripcion").disabled = false;
+  document.getElementById("btnIniciarTranscripcion").style.opacity = "1";
+
+  if (tipo === "manual") {
+    document.getElementById("selectorPlantilla").style.display = "block";
+    await cargarPlantillas();
+  } else {
+    document.getElementById("selectorPlantilla").style.display = "none";
+  }
+}
+
+async function cargarPlantillas() {
+  try {
+    const resp = await fetch("/plantillas-radio");
+    const data = await resp.json();
+    const sel  = document.getElementById("plantillaSelect");
+    if (data.plantillas?.length) {
+      sel.innerHTML = data.plantillas.map(p =>
+        `<option value="${p.id}">${esc(p.nombre)}${p.tipo_estudio ? ` — ${p.tipo_estudio}` : ""}</option>`
+      ).join("");
+    } else {
+      sel.innerHTML = `<option value="">Sin plantillas disponibles</option>`;
+    }
+  } catch(e) {
+    document.getElementById("plantillaSelect").innerHTML = `<option value="">Error al cargar</option>`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * VITACORE · Fix prefactura.html — función iniciarTranscripcion
+ *
+ * En prefactura.html buscar la función iniciarTranscripcion()
+ * y reemplazarla con esta versión que maneja el flujo manual.
+ * ═══════════════════════════════════════════════════════════════ */
+
+ async function iniciarTranscripcion() {
+  if (!PF.tipoSeleccionado || !PF.itemSeleccionado) return;
+
+  const btn = document.getElementById("btnIniciarTranscripcion");
+  btn.disabled = true;
+  btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Creando informe...`;
+
+  try {
+    // 1. Crear el informe en hc_informes_radio
+    const body = {
+      prefactura_id: PF.prefacturaSeleccionada,
+      paciente_id:   parseInt(PF.itemSeleccionado.pacienteId),
+      proc_id:       PF.itemSeleccionado.procId,
+      proc_nombre:   PF.itemSeleccionado.procNombre,
+      tipo:          PF.tipoSeleccionado,
+    };
+
+    if (PF.tipoSeleccionado === "manual") {
+      const sel = document.getElementById("plantillaSelect");
+      body.plantilla_id     = sel.value;
+      body.plantilla_nombre = sel.options[sel.selectedIndex]?.text || "";
+    }
+
+    const resp = await fetch("/prefacturas/crear-informe", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(body),
+    });
+    const data = await resp.json();
+
+    if (!data.ok) {
+      throw new Error(data.error || "No se pudo crear el informe");
+    }
+
+    const informe_id = data.informe_id;
+
+    // 2. Si es manual, parsear la plantilla y pre-llenar los bloques
+    if (PF.tipoSeleccionado === "manual") {
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Procesando plantilla...`;
+
+      const sel         = document.getElementById("plantillaSelect");
+      const plantilla_id = sel.value;
+
+      if (!plantilla_id) {
+        throw new Error("Seleccione una plantilla para continuar");
+      }
+
+      const respParse = await fetch(`/plantillas-radio/${plantilla_id}/parsear`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ informe_id }),
+      });
+      const dataParse = await respParse.json();
+
+      if (!dataParse.ok) {
+        throw new Error(dataParse.error || "Error al procesar la plantilla");
+      }
+
+      // Redirigir al editor del informe con los bloques pre-llenados
+      cerrarModal();
+      window.location.href = dataParse.redirect_url;
+
+    } else {
+      // Audio: redirigir a pantalla de carga de audio
+      cerrarModal();
+      window.location.href = data.redirect_url;
+    }
+
+  } catch (e) {
+    alert("Error: " + e.message);
+    btn.disabled = false;
+    btn.innerHTML = `<i class="fa-solid fa-play"></i> Iniciar transcripción`;
+  }
+}
+
+function verInforme(informeId) {
+  window.location.href = `/informe/${informeId}`;
+}
+
+// ── Filtros ───────────────────────────────────────────────────────
+document.getElementById("buscarInput").addEventListener("input", filtrar);
+document.getElementById("filtroEstado").addEventListener("change", filtrar);
+
+function filtrar() {
+  const texto  = document.getElementById("buscarInput").value.toLowerCase().trim();
+  const estado = document.getElementById("filtroEstado").value;
+
+  PF.filtradas = PF.prefacturas.filter(pf => {
+    const pac    = pf.paciente || {};
+    const nombre = `${pac.nombres||""} ${pac.apellidos||""}`.toLowerCase();
+    const doc    = (pac.numero_documento || "").toLowerCase();
+    // ✅ Agregar búsqueda por número de prefactura
+    const nroPf  = String(pf.id || "");
+
+    const matchTexto = !texto
+      || nombre.includes(texto)
+      || doc.includes(texto)
+      || nroPf.includes(texto)           // ← búsqueda por # prefactura
+      || nroPf === texto.replace("#",""); // ← también si escriben "#18"
+
+    const estInforme = pf.estado_informe_radio || "sin-informe";
+    const matchEstado = !estado || estInforme === estado ||
+      (estado === "sin-informe" && !pf.tiene_informe_radio);
+
+    return matchTexto && matchEstado;
+  });
+
+  renderizarLista(PF.filtradas);
+  document.getElementById("contadorResultados").textContent =
+    `${PF.filtradas.length} de ${PF.prefacturas.length}`;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+function esc(s) {
+  return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// Cerrar modal con Escape
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") cerrarModal();
+});
+
+// Iniciar
+cargarPrefacturas();
+</script>
+{% endblock %}
