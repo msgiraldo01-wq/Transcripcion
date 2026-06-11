@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 import uuid
+from collections import defaultdict
 from datetime import datetime, timezone
 from supabase_client import get_admin_client as get_supabase_admin
 
@@ -56,6 +57,32 @@ def _obtener_paciente(paciente_id: int) -> dict:
         return {}
 
 
+def _pacientes_por_ids(ids: list[int]) -> dict[int, dict]:
+    """
+    Trae todos los pacientes de una sola vez (1 consulta) y los devuelve
+    indexados por id. Evita el N+1 de llamar _obtener_paciente por cada uno.
+    """
+    if not ids:
+        return {}
+    sb = get_supabase_admin()
+    resp = (sb.table("hc_pacientes")
+              .select("""
+                id, numero_documento, tipo_documento_id,
+                primer_nombre, segundo_nombre,
+                primer_apellido, segundo_apellido,
+                nombres, apellidos,
+                celular, telefono, email,
+                fecha_nacimiento, sexo
+              """)
+              .in_("id", ids)
+              .execute())
+    out: dict[int, dict] = {}
+    for p in resp.data or []:
+        p["nombre_completo"] = _nombre_completo(p)
+        out[p["id"]] = p
+    return out
+
+
 # ════════════════════════════════════════════
 # PREFACTURAS — lectura
 # ════════════════════════════════════════════
@@ -86,6 +113,79 @@ def listar_prefacturas(
     for pf in prefacturas:
         pid = pf.get("paciente_id")
         pf["paciente"] = _obtener_paciente(pid) if pid else {}
+
+    return prefacturas
+
+
+def listar_prefacturas_completo(
+    sede_id: int | None = None,
+    limit:   int = 50,
+    offset:  int = 0,
+) -> list[dict]:
+    """
+    Versión optimizada del listado.
+
+    En vez de N+1 consultas (1 por prefactura para paciente, items e informes),
+    hace 4 consultas en lote y ensambla todo en memoria:
+        1. prefacturas
+        2. pacientes        (.in_ sobre los paciente_id)
+        3. items            (.in_ sobre los prefactura_id)
+        4. informes radio   (.in_ sobre los prefactura_id)
+    """
+    sb = get_supabase_admin()
+
+    # 1. Prefacturas
+    query = (sb.table("fin_prefacturas")
+               .select("""
+                 id, paciente_id, empresa_id, cliente_id,
+                 sede_id, periodo_inicio, periodo_fin,
+                 estado, tiene_informe_radio,
+                 estado_informe_radio, created_at
+               """)
+               .order("created_at", desc=True)
+               .limit(limit)
+               .offset(offset))
+    if sede_id:
+        query = query.eq("sede_id", sede_id)
+
+    prefacturas = query.execute().data or []
+    if not prefacturas:
+        return []
+
+    pf_ids  = [pf["id"] for pf in prefacturas]
+    pac_ids = list({pf["paciente_id"] for pf in prefacturas if pf.get("paciente_id")})
+
+    # 2. Pacientes (1 consulta)
+    pacientes = _pacientes_por_ids(pac_ids)
+
+    # 3. Items (1 consulta)
+    items_resp = (sb.table("fin_prefactura_items")
+                    .select("""
+                      id, prefactura_id, cita_id,
+                      cita_procedimiento_id, codigo_cups,
+                      descripcion, cantidad, valor_unitario, valor_total
+                    """)
+                    .in_("prefactura_id", pf_ids)
+                    .execute())
+    items_por_pf: dict[int, list] = defaultdict(list)
+    for it in items_resp.data or []:
+        items_por_pf[it["prefactura_id"]].append(it)
+
+    # 4. Informes radiológicos (1 consulta)
+    inf_resp = (sb.table("hc_informes_radio")
+                  .select("*")
+                  .in_("prefactura_id", pf_ids)
+                  .order("creado_at", desc=False)
+                  .execute())
+    inf_por_pf: dict[int, list] = defaultdict(list)
+    for inf in inf_resp.data or []:
+        inf_por_pf[inf["prefactura_id"]].append(inf)
+
+    # 5. Ensamblar en memoria
+    for pf in prefacturas:
+        pf["paciente"] = pacientes.get(pf.get("paciente_id"), {})
+        pf["items"]    = items_por_pf.get(pf["id"], [])
+        pf["informes"] = inf_por_pf.get(pf["id"], [])
 
     return prefacturas
 

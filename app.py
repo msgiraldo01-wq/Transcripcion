@@ -180,8 +180,9 @@ app.notificar_job_error = notificar_job_error
 # ════════════════════════════════════════════
 
 @app.route("/")
+@login_required
 def index():
-    return redirect(url_for("vista_prefacturas"))
+    return render_template("index.html")
 
 
 @app.route("/remisiones")
@@ -533,6 +534,8 @@ def vista_prefacturas():
     return render_template("prefactura.html")
 
 
+import time
+
 @app.route("/api/prefacturas")
 def api_prefacturas():
     try:
@@ -540,10 +543,10 @@ def api_prefacturas():
         limit   = request.args.get("limit",   type=int, default=50)
         offset  = request.args.get("offset",  type=int, default=0)
 
-        prefacturas = listar_prefacturas(sede_id=sede_id, limit=limit, offset=offset)
-        for pf in prefacturas:
-            pf["items"]    = obtener_items_prefactura(pf["id"])
-            pf["informes"] = obtener_informes_prefactura(pf["id"])
+        from fin_prefactura_repo import listar_prefacturas_completo
+        prefacturas = listar_prefacturas_completo(
+            sede_id=sede_id, limit=limit, offset=offset
+        )
 
         return jsonify({"ok": True, "prefacturas": prefacturas})
     except Exception as e:

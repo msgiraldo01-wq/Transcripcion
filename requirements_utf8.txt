@@ -1,0 +1,39 @@
+﻿# VITACORE Â· Dependencias Fase 1
+# Instalar con: pip install -r requirements.txt
+
+# â”€â”€ Framework â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+flask>=3.0.0
+python-dotenv>=1.0.0
+werkzeug>=3.0.0
+
+# â”€â”€ Supabase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+supabase>=2.4.0
+
+# â”€â”€ Groq (STT + LLM) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+groq>=0.9.0
+
+# â”€â”€ Cola de procesamiento â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+celery>=5.3.0
+redis>=5.0.0
+
+# â”€â”€ Audio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ffmpeg debe estar instalado en el sistema:
+#   Ubuntu/Debian: sudo apt install ffmpeg
+#   macOS:         brew install ffmpeg
+
+# â”€â”€ ExportaciÃ³n de informes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+python-docx>=1.1.0
+fpdf2>=2.7.0
+
+# â”€â”€ Removidos en Fase 1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# faster-whisper  â† reemplazado por Groq API
+# torch           â† ya no se necesita
+
+# VITACORE Â· Dependencias Fase 4
+# Instalar con: pip install -r requirements.txt
+
+# â”€â”€ Framework â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+flask>=3.0.0
+python-dotenv>=1.0.0
+werkzeug>=3.0.0
+

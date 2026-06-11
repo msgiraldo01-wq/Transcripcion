@@ -67,7 +67,7 @@ def login():
 
         flash("Bienvenido a Transcripción.", "success")
 
-        return redirect("/prefacturas")
+        return redirect("/")
 
     except Exception as e:
         print("ERROR LOGIN:", e)
